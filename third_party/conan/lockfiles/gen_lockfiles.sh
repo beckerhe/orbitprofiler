@@ -2,21 +2,37 @@
 
 REPO_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )/../../../" >/dev/null 2>&1 && pwd )"
 
-if [ "$(uname -s)" == "Linux" ]; then
-  subdirectory="linux"
-  profiles=({ggp,clang{7,8,9},gcc{8,9}}_{release,relwithdebinfo,debug})
-else
-  subdirectory="windows"
-  profiles=({ggp_{release,relwithdebinfo,debug},msvc{2017,2019}_{release,relwithdebinfo,debug}{,_x86}})
-fi
-if [ "$#" -ne 0 ]; then
-  profiles=( "$@" )
-fi
+cleanup() {
+  if [ -n "$CONAN_USER_HOME" -a -d "$CONAN_USER_HOME" ]; then
+    rm -rf $CONAN_USER_HOME
+  fi
+}
 
-for profile in ${profiles[@]}; do
-  tmpfile="$(mktemp -d)"
-  conan graph lock "$REPO_ROOT" -pr $profile -u --build '*' "--lockfile=$tmpfile" || exit $?
-  jq --indent 1 'del(.graph_lock.nodes."0".path)' < "$tmpfile/conan.lock" \
-    > "$REPO_ROOT/third_party/conan/lockfiles/$subdirectory/$profile/conan.lock" || exit $?
-  rm -rf "$tmpfile"
+trap cleanup EXIT
+
+for os in windows; do
+  export CONAN_USER_HOME="$(mktemp -d)"
+  $REPO_ROOT/third_party/conan/configs/install.sh --assume-$os || exit $?
+
+  if ! conan profile show default >/dev/null 2>&1; then
+    conan profile new --detect default >/dev/null 2>&1 || exit $?
+  fi
+
+  if [ "$os" == "linux" ]; then
+    build_profile="clang7_release"
+  else
+    build_profile="msvc2017_release"
+  fi
+
+  echo "Build profile:"
+  conan profile show $build_profile
+
+  ls -1 $REPO_ROOT/third_party/conan/lockfiles/$os/ | while read profile; do
+    conan graph lock "$REPO_ROOT" -pr:b $build_profile -pr:h $profile \
+       --build '*' "--lockfile=$CONAN_USER_HOME" || exit $?
+    jq --indent 1 'del(.graph_lock.nodes."0".path)' < "$CONAN_USER_HOME/conan.lock" \
+      > "$REPO_ROOT/third_party/conan/lockfiles/$os/$profile/conan.lock" || exit $?
+  done
+
+  rm -rf "$CONAN_USER_HOME" || exit $?
 done
