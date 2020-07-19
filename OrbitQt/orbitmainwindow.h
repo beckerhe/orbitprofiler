@@ -17,6 +17,9 @@
 
 #include "ApplicationOptions.h"
 #include "CallStackDataView.h"
+#include "App.h"
+
+#include "ItemModels/ProcessItemModel.h"
 
 namespace Ui {
 class OrbitMainWindow;
@@ -96,6 +99,11 @@ class OrbitMainWindow : public QMainWindow {
   void SetupCodeView();
   void ShowFeedbackDialog();
 
+  OrbitApp* GetOrbitApp() { return GOrbitApp.get(); }
+  const OrbitApp* GetOrbitApp() const { return GOrbitApp.get(); }
+
+  void LoadModulesAsync(int32_t pid);
+
  private:
   QApplication* m_App;
   Ui::OrbitMainWindow* ui;
@@ -121,4 +129,7 @@ class OrbitMainWindow : public QMainWindow {
   class OutputDialog* m_OutputDialog;
   std::string m_CurrentPdbName;
   bool m_IsDev;
+
+  ItemModels::ProcessItemModel process_item_model_;
+  void SetUpProcessesView();
 };

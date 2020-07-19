@@ -87,15 +87,11 @@ class OrbitApp final : public DataViewFactory, public CaptureListener {
 
   void RegisterCaptureWindow(class CaptureWindow* a_Capture);
 
-  void OnProcessSelected(int32_t pid);
-
   void AddSamplingReport(
       std::shared_ptr<class SamplingProfiler>& sampling_profiler);
   void AddSelectionReport(
       std::shared_ptr<SamplingProfiler>& a_SamplingProfiler);
 
-  bool SelectProcess(const std::string& a_Process);
-  bool SelectProcess(int32_t a_ProcessID);
   bool Inject(unsigned long a_ProcessId);
 
   // Callbacks
@@ -217,6 +213,12 @@ class OrbitApp final : public DataViewFactory, public CaptureListener {
 
   DataView* GetOrCreateDataView(DataViewType type) override;
 
+  ProcessManager* GetProcessManager() { return process_manager_.get(); }
+  DataManager* GetDataManager() { return data_manager_.get(); }
+  ThreadPool* GetThreadPool() { return thread_pool_.get(); }
+  void UpdateProcessMap(const std::vector<ProcessInfo>&);
+  void UpdateModuleInfos(uint32_t pid, const std::vector<ModuleInfo>&);
+
  private:
   void LoadModuleOnRemote(int32_t process_id,
                           const std::shared_ptr<Module>& module,
@@ -253,7 +255,7 @@ class OrbitApp final : public DataViewFactory, public CaptureListener {
   SaveFileCallback save_file_callback_;
   ClipboardCallback clipboard_callback_;
 
-  std::unique_ptr<ProcessesDataView> m_ProcessesDataView;
+  // std::unique_ptr<ProcessesDataView> m_ProcessesDataView;
   std::unique_ptr<ModulesDataView> m_ModulesDataView;
   std::unique_ptr<FunctionsDataView> m_FunctionsDataView;
   std::unique_ptr<LiveFunctionsDataView> m_LiveFunctionsDataView;

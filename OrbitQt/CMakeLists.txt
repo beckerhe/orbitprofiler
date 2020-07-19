@@ -60,13 +60,15 @@ target_include_directories(OrbitQt PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
 target_link_libraries(
   OrbitQt
-  PRIVATE OrbitCore
+  PRIVATE ItemModels
+          OrbitCore
           OrbitGl
           OrbitGgp
           OrbitSshQt
           Qt5::Widgets
           Qt5::Core
-          qtpropertybrowser::qtpropertybrowser)
+          qtpropertybrowser::qtpropertybrowser
+          Widgets)
 
 if(WITH_CRASH_HANDLING)
   target_sources(

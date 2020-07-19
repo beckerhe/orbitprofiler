@@ -36,8 +36,8 @@
 #include "ModulesDataView.h"
 #include "OrbitBase/Logging.h"
 #include "OrbitBase/Tracing.h"
-#include "OrbitVersion.h"
 #include "OrbitSession.h"
+#include "OrbitVersion.h"
 #include "Params.h"
 #include "Pdb.h"
 #include "PresetsDataView.h"
@@ -184,43 +184,6 @@ void OrbitApp::PostInit() {
     process_manager_ =
         ProcessManager::Create(grpc_channel_, absl::Milliseconds(1000));
 
-    auto callback = [this](ProcessManager* process_manager) {
-      main_thread_executor_->Schedule([this, process_manager]() {
-        const std::vector<ProcessInfo>& process_infos =
-            process_manager->GetProcessList();
-        data_manager_->UpdateProcessInfos(process_infos);
-        m_ProcessesDataView->SetProcessList(process_infos);
-        {
-          // TODO: remove this part when client stops using Process class
-          absl::MutexLock lock(&process_map_mutex_);
-          for (const ProcessInfo& info : process_infos) {
-            auto it = process_map_.find(info.pid());
-            if (it != process_map_.end()) {
-              continue;
-            }
-
-            std::shared_ptr<Process> process = std::make_shared<Process>();
-            process->SetID(info.pid());
-            process->SetName(info.name());
-            process->SetFullPath(info.full_path());
-            process->SetIs64Bit(info.is_64_bit());
-            // The other fields do not appear to be used at the moment.
-
-            process_map_.insert_or_assign(process->GetID(), process);
-          }
-        }
-
-        if (m_ProcessesDataView->GetSelectedProcessId() == -1 &&
-            m_ProcessesDataView->GetFirstProcessId() != -1) {
-          m_ProcessesDataView->SelectProcess(
-              m_ProcessesDataView->GetFirstProcessId());
-        }
-        FireRefreshCallbacks(DataViewType::PROCESSES);
-      });
-    };
-
-    process_manager_->SetProcessListUpdateListener(callback);
-
     frame_pointer_validator_client_ =
         std::make_unique<FramePointerValidatorClient>(this, grpc_channel_);
 
@@ -233,6 +196,26 @@ void OrbitApp::PostInit() {
 
   string_manager_ = std::make_shared<StringManager>();
   GCurrentTimeGraph->SetStringManager(string_manager_);
+}
+
+void OrbitApp::UpdateProcessMap(const std::vector<ProcessInfo>& processes) {
+  // TODO: remove this function when client stops using Process class
+  absl::MutexLock lock(&process_map_mutex_);
+  for (const ProcessInfo& info : processes) {
+    auto it = process_map_.find(info.pid());
+    if (it != process_map_.end()) {
+      continue;
+    }
+
+    std::shared_ptr<Process> process = std::make_shared<Process>();
+    process->SetID(info.pid());
+    process->SetName(info.name());
+    process->SetFullPath(info.full_path());
+    process->SetIs64Bit(info.is_64_bit());
+    // The other fields do not appear to be used at the moment.
+
+    process_map_.insert_or_assign(process->GetID(), process);
+  }
 }
 
 //-----------------------------------------------------------------------------
@@ -537,12 +520,12 @@ void OrbitApp::LoadPreset(const std::shared_ptr<Preset>& preset) {
     GOrbitApp->LoadModulesFromPreset(Capture::GTargetProcess, preset);
     return;
   }
-  if (!SelectProcess(Path::GetFileName(preset->m_ProcessFullPath))) {
-    SendErrorToUi("Preset loading failed",
-                  absl::StrFormat("The process \"%s\" is not running.",
-                                  preset->m_ProcessFullPath));
-    return;
-  }
+  // if (!SelectProcess(Path::GetFileName(preset->m_ProcessFullPath))) {
+  //   SendErrorToUi("Preset loading failed",
+  //                 absl::StrFormat("The process \"%s\" is not running.",
+  //                                 preset->m_ProcessFullPath));
+  //   return;
+  // }
   Capture::GSessionPresets = preset;
 }
 
@@ -655,24 +638,6 @@ void OrbitApp::ToggleCapture() {
   } else {
     StartCapture();
   }
-}
-
-//-----------------------------------------------------------------------------
-bool OrbitApp::SelectProcess(const std::string& a_Process) {
-  if (m_ProcessesDataView) {
-    return m_ProcessesDataView->SelectProcess(a_Process);
-  }
-
-  return false;
-}
-
-//-----------------------------------------------------------------------------
-bool OrbitApp::SelectProcess(int32_t a_ProcessID) {
-  if (m_ProcessesDataView) {
-    return m_ProcessesDataView->SelectProcess(a_ProcessID);
-  }
-
-  return false;
 }
 
 //-----------------------------------------------------------------------------
@@ -852,57 +817,36 @@ void OrbitApp::LoadModulesFromPreset(const std::shared_ptr<Process>& process,
   }
 }
 
-//-----------------------------------------------------------------------------
+void OrbitApp::UpdateModuleInfos(uint32_t pid, const std::vector<ModuleInfo>& module_infos) {
+  data_manager_->UpdateModuleInfos(pid, module_infos);
 
-void OrbitApp::OnProcessSelected(int32_t pid) {
-  thread_pool_->Schedule([pid, this] {
-    ErrorMessageOr<std::vector<ModuleInfo>> result =
-        process_manager_->LoadModuleList(pid);
+  m_ModulesDataView->SetModules(pid, data_manager_->GetModules(pid));
 
-    if (result.has_error()) {
-      ERROR("Error retrieving modules: %s", result.error().message());
-      SendErrorToUi("Error retrieving modules", result.error().message());
-      return;
-    }
+  // TODO: remove this part when all client code is moved to
+  // new data model.
+  std::shared_ptr<Process> process = FindProcessByPid(pid);
+  Capture::SetTargetProcess(process);
 
-    main_thread_executor_->Schedule([pid, result, this] {
-      // Make sure that pid is actually what user has selected at
-      // the moment we arrive here. If not - ignore the result.
-      const std::vector<ModuleInfo>& module_infos = result.value();
-      data_manager_->UpdateModuleInfos(pid, module_infos);
-      if (pid != m_ProcessesDataView->GetSelectedProcessId()) {
-        return;
-      }
+  for (const ModuleInfo& info : module_infos) {
+    std::shared_ptr<Module> module = std::make_shared<Module>();
+    module->m_Name = info.name();
+    module->m_FullName = info.file_path();
+    module->m_PdbSize = info.file_size();
+    module->m_AddressStart = info.address_start();
+    module->m_AddressEnd = info.address_end();
+    module->m_DebugSignature = info.build_id();
+    module->SetLoadable(true);
+    process->AddModule(module);
+  }
 
-      m_ModulesDataView->SetModules(pid, data_manager_->GetModules(pid));
+  std::shared_ptr<Preset> preset = Capture::GSessionPresets;
+  if (preset) {
+    LoadModulesFromPreset(process, preset);
+    Capture::GSessionPresets = nullptr;
+  }
+  // To this point ----------------------------------
 
-      // TODO: remove this part when all client code is moved to
-      // new data model.
-      std::shared_ptr<Process> process = FindProcessByPid(pid);
-      Capture::SetTargetProcess(process);
-
-      for (const ModuleInfo& info : module_infos) {
-        std::shared_ptr<Module> module = std::make_shared<Module>();
-        module->m_Name = info.name();
-        module->m_FullName = info.file_path();
-        module->m_PdbSize = info.file_size();
-        module->m_AddressStart = info.address_start();
-        module->m_AddressEnd = info.address_end();
-        module->m_DebugSignature = info.build_id();
-        module->SetLoadable(true);
-        process->AddModule(module);
-      }
-
-      std::shared_ptr<Preset> preset = Capture::GSessionPresets;
-      if (preset) {
-        LoadModulesFromPreset(process, preset);
-        Capture::GSessionPresets = nullptr;
-      }
-      // To this point ----------------------------------
-
-      FireRefreshCallbacks();
-    });
-  });
+  FireRefreshCallbacks();
 }
 
 //-----------------------------------------------------------------------------
@@ -958,13 +902,7 @@ DataView* OrbitApp::GetOrCreateDataView(DataViewType type) {
       return m_ModulesDataView.get();
 
     case DataViewType::PROCESSES:
-      if (!m_ProcessesDataView) {
-        m_ProcessesDataView = std::make_unique<ProcessesDataView>();
-        m_ProcessesDataView->SetSelectionListener(
-            [&](int32_t pid) { OnProcessSelected(pid); });
-        m_Panels.push_back(m_ProcessesDataView.get());
-      }
-      return m_ProcessesDataView.get();
+      CHECK(false);
 
     case DataViewType::PRESETS:
       if (!m_PresetsDataView) {

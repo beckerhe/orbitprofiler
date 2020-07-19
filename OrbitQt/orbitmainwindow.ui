@@ -65,7 +65,7 @@
             <property name="orientation">
              <enum>Qt::Horizontal</enum>
             </property>
-            <widget class="ProcessLauncherWidget" name="ProcessesList" native="true"/>
+            <widget class="Widgets::FilterBarTableViewWidget" name="ProcessesList" native="true"/>
             <widget class="OrbitDataViewPanel" name="SessionList"/>
            </widget>
            <widget class="OrbitDataViewPanel" name="ModulesList"/>
@@ -440,7 +440,9 @@
    <header>orbitdataviewpanel.h</header>
   </customwidget>
   <customwidget>
+   <class>Widgets::FilterBarTableViewWidget</class>
    <extends>QWidget</extends>
+   <header>Widgets/FilterBarTableViewWidget.h</header>
   </customwidget>
  </customwidgets>
  <resources/>

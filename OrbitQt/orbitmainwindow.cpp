@@ -11,6 +11,8 @@
 #include <QDesktopServices>
 #include <QDialogButtonBox>
 #include <QFileDialog>
+#include <QHeaderView>
+#include <QItemSelectionModel>
 #include <QMessageBox>
 #include <QMouseEvent>
 #include <QPointer>
@@ -26,6 +28,7 @@
 #include "../OrbitGl/App.h"
 #include "../OrbitGl/SamplingReport.h"
 #include "../third_party/concurrentqueue/concurrentqueue.h"
+#include "ItemModels/ProcessItemModel.h"
 #include "OrbitVersion.h"
 #include "absl/flags/flag.h"
 #include "absl/strings/match.h"
@@ -35,6 +38,7 @@
 #include "orbitdisassemblydialog.h"
 #include "orbitsamplingreport.h"
 #include "outputdialog.h"
+#include "process.pb.h"
 #include "services.pb.h"
 #include "showincludesdialog.h"
 #include "ui_orbitmainwindow.h"
@@ -63,9 +67,6 @@ OrbitMainWindow::OrbitMainWindow(QApplication* a_App,
   DataViewFactory* data_view_factory = GOrbitApp.get();
 
   ui->setupUi(this);
-
-  ui->ProcessesList->SetDataView(
-      data_view_factory->GetOrCreateDataView(DataViewType::PROCESSES));
 
   QList<int> sizes;
   sizes.append(5000);
@@ -222,6 +223,110 @@ OrbitMainWindow::OrbitMainWindow(QApplication* a_App,
   GMainWindow = this;
 
   GOrbitApp->PostInit();
+
+  GOrbitApp->GetProcessManager()->SetProcessListUpdateListener(
+      [this](ProcessManager* process_manager) {
+        QMetaObject::invokeMethod(
+            this,
+            [this, process_manager]() {
+              auto processes = process_manager->GetProcessList();
+              GOrbitApp->GetDataManager()->UpdateProcessInfos(processes);
+              process_item_model_.SetProcesses(processes);
+              GOrbitApp->UpdateProcessMap(processes);
+
+              auto table = ui->ProcessesList->GetTableView();
+              if (table->selectionModel()->selectedRows().isEmpty()) {
+                table->selectionModel()->select(
+                    table->model()->index(0, 0),
+                    QItemSelectionModel::Clear | QItemSelectionModel::Rows |
+                        QItemSelectionModel::SelectCurrent);
+              }
+            },
+            Qt::QueuedConnection);
+      });
+
+  SetUpProcessesView();
+}
+
+void OrbitMainWindow::SetUpProcessesView() {
+  // Processes View
+  using ProcessColumn = ItemModels::ProcessItemModel::Column;
+  ui->ProcessesList->GetLabel()->setText("Processes");
+  ui->ProcessesList->SetModel(&process_item_model_);
+
+  auto model = ui->ProcessesList->GetProxyModel();
+  model->setFilterKeyColumn(static_cast<int>(ProcessColumn::kName));
+  model->setFilterCaseSensitivity(Qt::CaseInsensitive);
+  model->setSortRole(Qt::EditRole);
+
+  auto table = ui->ProcessesList->GetTableView();
+  table->setSelectionMode(QAbstractItemView::SelectionMode::SingleSelection);
+  table->setSelectionBehavior(QAbstractItemView::SelectionBehavior::SelectRows);
+  table->setSortingEnabled(true);
+  table->sortByColumn(static_cast<int>(ProcessColumn::kCpu),
+                      Qt::DescendingOrder);
+  table->setWordWrap(false);
+
+  auto header = table->horizontalHeader();
+  header->setSectionResizeMode(static_cast<int>(ProcessColumn::kPid),
+                               QHeaderView::ResizeToContents);
+  header->setSectionResizeMode(static_cast<int>(ProcessColumn::kName),
+                               QHeaderView::Stretch);
+  header->setSectionResizeMode(static_cast<int>(ProcessColumn::kCpu),
+                               QHeaderView::ResizeToContents);
+
+  auto rows = table->verticalHeader();
+  rows->setDefaultSectionSize(table->fontMetrics().height() + 2);
+
+  QObject::connect(
+      table->selectionModel(), &QItemSelectionModel::selectionChanged, this,
+      [this, table]() {
+        const auto selectedRows = table->selectionModel()->selectedRows();
+
+        // Single Selection is enabled, so we should only have 0 or 1 rows
+        // selected!
+        CHECK(selectedRows.size() < 2);
+
+        if (selectedRows.size() == 1) {
+          using ItemModels::ProcessItemModel;
+          const auto process =
+              ProcessItemModel::ProcessInfoFromModelIndex(selectedRows.front());
+          LoadModulesAsync(process->pid());
+        }
+      });
+}
+
+void OrbitMainWindow::LoadModulesAsync(int32_t pid) {
+  GetOrbitApp()->GetThreadPool()->Schedule([pid, this] {
+    auto result = GetOrbitApp()->GetProcessManager()->LoadModuleList(pid);
+
+    if (result.has_error()) {
+      ERROR("Error retrieving modules: %s", result.error().message());
+    }
+
+    // Schedule on the main thread:
+    QMetaObject::invokeMethod(this, [this, pid,
+                                     result = std::move(result)]() mutable {
+      if (result.has_error()) {
+        QMessageBox::critical(this, "Error retrieving modules",
+                              QString::fromStdString(result.error().message()));
+        return;
+      }
+
+      // Make sure that pid is actually what user has selected at
+      // the moment we arrive here. If not - ignore the result.
+      const auto table_view = ui->ProcessesList->GetTableView();
+      const auto selected_rows = table_view->selectionModel()->selectedRows();
+      if (selected_rows.empty() || pid != selected_rows.front()
+                                              .data(Qt::UserRole)
+                                              .value<const ProcessInfo*>()
+                                              ->pid()) {
+        return;
+      }
+
+      GetOrbitApp()->UpdateModuleInfos(pid, std::move(result.value()));
+    });
+  });
 }
 
 namespace {
@@ -461,7 +566,6 @@ void OrbitMainWindow::UpdatePanel(DataViewType a_Type) {
       ui->ModulesList->Refresh();
       break;
     case DataViewType::PROCESSES:
-      ui->ProcessesList->Refresh();
       break;
     case DataViewType::PRESETS:
       ui->SessionList->Refresh();
@@ -713,7 +817,8 @@ void OrbitMainWindow::ShowCaptureOnSaveWarningIfNeeded() {
   if (!settings.value(skip_capture_warning, false).toBool()) {
     QMessageBox message_box;
     message_box.setText(
-        "Note: Captures saved with this version of Orbit might be incompatible "
+        "Note: Captures saved with this version of Orbit might be "
+        "incompatible "
         "with future versions. Please check release notes for more "
         "information");
     message_box.addButton(QMessageBox::Ok);
@@ -774,7 +879,8 @@ outcome::result<void> OrbitMainWindow::OpenCapture(
         this, "Error loading capture",
         QString::fromStdString(absl::StrFormat(
             "Could not load capture from \"%s\":\n%s.\nNote: If the capture "
-            "was taken in a previous Orbit version, it could be incompatible. "
+            "was taken in a previous Orbit version, it could be "
+            "incompatible. "
             "Please check release notes for more information.",
             filepath, result.error().message())));
     return std::errc::no_such_file_or_directory;
