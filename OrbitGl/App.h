@@ -31,7 +31,6 @@
 #include "OrbitBase/ThreadPool.h"
 #include "PresetsDataView.h"
 #include "ProcessManager.h"
-#include "ProcessesDataView.h"
 #include "SamplingReportDataView.h"
 #include "StringManager.h"
 #include "SymbolHelper.h"

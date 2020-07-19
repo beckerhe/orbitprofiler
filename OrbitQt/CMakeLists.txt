@@ -28,7 +28,6 @@ target_sources(
           orbittreeview.h
           opengldetect.h
           outputdialog.h
-          processlauncherwidget.h
           resource.h
           servicedeploymanager.h
           showincludesdialog.h)
@@ -54,7 +53,6 @@ target_sources(
           orbittreeview.cpp
           opengldetect.cpp
           outputdialog.cpp
-          processlauncherwidget.cpp
           servicedeploymanager.cpp
           showincludesdialog.cpp)
 

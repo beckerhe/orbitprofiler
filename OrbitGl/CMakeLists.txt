@@ -43,7 +43,6 @@ target_sources(
          OpenGl.h
          PickingManager.h
          PresetsDataView.h
-         ProcessesDataView.h
          SamplingReport.h
          SamplingReportDataView.h
          SchedulerTrack.h
@@ -87,7 +86,6 @@ target_sources(
           PickingManager.cpp
           PresetsDataView.cpp
           ProcessManager.cpp
-          ProcessesDataView.cpp
           SamplingReport.cpp
           SamplingReportDataView.cpp
           SchedulerTrack.cpp
