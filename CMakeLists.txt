@@ -158,6 +158,7 @@ add_subdirectory(protos)
 
 if(WITH_GUI)
   add_subdirectory(ItemModels)
+  add_subdirectory(Widgets)
   add_subdirectory(OrbitGgp)
   add_subdirectory(OrbitSsh)
   add_subdirectory(OrbitSshQt)
