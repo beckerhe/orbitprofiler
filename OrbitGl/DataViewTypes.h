@@ -9,7 +9,6 @@ enum class DataViewType {
   FUNCTIONS,
   LIVE_FUNCTIONS,
   CALLSTACK,
-  PROCESSES,
   MODULES,
   SAMPLING,
   PRESETS,

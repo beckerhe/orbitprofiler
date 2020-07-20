@@ -901,9 +901,6 @@ DataView* OrbitApp::GetOrCreateDataView(DataViewType type) {
       }
       return m_ModulesDataView.get();
 
-    case DataViewType::PROCESSES:
-      CHECK(false);
-
     case DataViewType::PRESETS:
       if (!m_PresetsDataView) {
         m_PresetsDataView = std::make_unique<PresetsDataView>();
