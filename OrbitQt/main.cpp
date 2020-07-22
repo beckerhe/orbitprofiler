@@ -14,6 +14,8 @@
 #include <QProcessEnvironment>
 #include <QProgressDialog>
 #include <QStyleFactory>
+#include <QtWebEngine>
+#include <QWebEngineProfile>
 
 #ifdef _WIN32
 #include <process.h>
@@ -125,8 +127,9 @@ static outcome::result<void> RunUiInstance(
   ApplicationOptions options;
   options.grpc_server_address =
       absl::StrFormat("127.0.0.1:%d", ports.grpc_port);
+  QWebEngineProfile web_engine_profile{};
 
-  OrbitMainWindow w(app, std::move(options));
+  OrbitMainWindow w(std::move(options), &web_engine_profile);
   w.showMaximized();
   w.PostInit();
 
@@ -245,6 +248,7 @@ int main(int argc, char* argv[]) {
     QCoreApplication::setAttribute(Qt::AA_DontUseNativeDialogs);
 #endif
 
+    QtWebEngine::initialize();
     QApplication app(argc, argv);
     QCoreApplication::setApplicationName("Orbit Profiler [BETA]");
     QCoreApplication::setApplicationVersion(
