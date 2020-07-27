@@ -520,12 +520,12 @@ void OrbitApp::LoadPreset(const std::shared_ptr<Preset>& preset) {
     GOrbitApp->LoadModulesFromPreset(Capture::GTargetProcess, preset);
     return;
   }
-  // if (!SelectProcess(Path::GetFileName(preset->m_ProcessFullPath))) {
-  //   SendErrorToUi("Preset loading failed",
-  //                 absl::StrFormat("The process \"%s\" is not running.",
-  //                                 preset->m_ProcessFullPath));
-  //   return;
-  // }
+  if (!SelectProcess(Path::GetFileName(preset->m_ProcessFullPath))) {
+     SendErrorToUi("Preset loading failed",
+                   absl::StrFormat("The process \"%s\" is not running.",
+                                   preset->m_ProcessFullPath));
+     return;
+  }
   Capture::GSessionPresets = preset;
 }
 
