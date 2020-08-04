@@ -37,6 +37,7 @@ function conan_create_profile($profile) {
 }
 
 $profiles = if ($args.Count) { $args } else { @("default_relwithdebinfo") }
+$build_profile = "default_release"
 
 foreach ($profile in $profiles) {
 
@@ -44,10 +45,15 @@ foreach ($profile in $profiles) {
     Write-Host "Creating conan profile $profile"
     conan_create_profile $profile
   }
+
+  if (-not (conan_profile_exists $build_profile)) {
+    Write-Host "Creating conan profile $profile for build requirements"
+    conan_create_profile $build_profile
+  }
   
   Write-Host "Building Orbit in build_$profile/ with conan profile $profile"
 
-  $process = Start-Process $conan.Path -Wait -NoNewWindow -ErrorAction Stop -PassThru -ArgumentList "install","-pr",$profile,"-o","system_qt=False","-if","build_$profile/","--build","outdated",$PSScriptRoot
+  $process = Start-Process $conan.Path -Wait -NoNewWindow -ErrorAction Stop -PassThru -ArgumentList "install","-pr:b",$build_profile,"-pr:h",$profile,"-o","system_qt=False","-if","build_$profile/","--build","outdated",$PSScriptRoot
   if ($process.ExitCode -ne 0) {
     Throw "Error while running conan install."
   }
