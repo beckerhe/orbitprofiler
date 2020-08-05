@@ -18,7 +18,7 @@ abseil:compiler=clang
 abseil:compiler.cppstd=17
 [options]
 [build_requires]
-cmake_installer/3.16.3@conan/stable
+cmake/3.17.3
 [env]
 CC=$C_COMPILER
 CXX=$CXX_COMPILER
