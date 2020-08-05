@@ -8,7 +8,6 @@ class LibprotobufMutatorConan(ConanFile):
     settings = "os", "compiler", "build_type", "arch"
     generators = "cmake"
     exports_sources = "patches/*",
-    build_requires = "protoc_installer/3.9.1@bincrafters/stable",
     options = { "fPIC" : [True, False] }
     default_options = { "fPIC" : True }
     short_paths = True
@@ -25,7 +24,10 @@ class LibprotobufMutatorConan(ConanFile):
     def requirements(self):
         self.requires("lzma_sdk/19.00@orbitdeps/stable")
         self.requires("zlib/1.2.11")
-        self.requires("protobuf/3.9.1@bincrafters/stable")
+        self.requires("protobuf/[>3.9]")
+
+    def build_requirements(self):
+        self.build_requires("protobuf/[>3.9]")
 
     def build(self):
         self._source_subfolder = self.conan_data["source_subfolder"][self.version]
