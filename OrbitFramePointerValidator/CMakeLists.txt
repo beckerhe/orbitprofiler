@@ -26,7 +26,7 @@ target_sources(OrbitFramePointerValidator PRIVATE
 target_link_libraries(OrbitFramePointerValidator PUBLIC
         OrbitBase
         OrbitProtos
-        abseil::abseil
+        absl::absl
         capstone::capstone)
 
 add_executable(OrbitFramePointerValidatorTests)
@@ -39,6 +39,6 @@ target_link_libraries(OrbitFramePointerValidatorTests PRIVATE
         OrbitCore
         OrbitFramePointerValidator
         GTest::Main
-        abseil::abseil)
+        absl::absl)
 
 register_test(OrbitFramePointerValidatorTests)

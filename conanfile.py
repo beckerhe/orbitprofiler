@@ -60,7 +60,7 @@ class OrbitConan(ConanFile):
             raise ConanInvalidConfiguration("When disabling system_qt, you also have to "
                                             "disable system mesa.")
 
-        self.requires("abseil/20190808@{}#0".format(self._orbit_channel))
+        self.requires("abseil/20200225.2#c71495efc5e0e05669c1cb0be7d6cc3f")
         self.requires("bzip2/1.0.8@conan/stable#0")
         self.requires("capstone/4.0.1@{}#0".format(self._orbit_channel))
         self.requires(
@@ -109,7 +109,6 @@ class OrbitConan(ConanFile):
             raise ConanInvalidConfiguration(
                 "We don't actively support building the UI for 32bit platforms. Please remove this check in conanfile.py if you still want to do so!")
 
-        self.options["abseil"].cxx_standard = 17
         self.options["gtest"].no_main = True
         if self.options.with_gui:
             self.options["glew"].system_mesa = self.options.system_mesa

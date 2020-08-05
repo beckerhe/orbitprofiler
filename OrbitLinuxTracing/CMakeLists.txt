@@ -61,7 +61,7 @@ target_sources(OrbitLinuxTracing PRIVATE
 target_link_libraries(OrbitLinuxTracing PUBLIC
         OrbitBase
         OrbitProtos
-        abseil::abseil
+        absl::absl
         libunwindstack::libunwindstack)
 
 add_executable(OrbitLinuxTracingTests)

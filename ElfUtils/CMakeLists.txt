@@ -23,7 +23,7 @@ target_link_libraries(
   ElfUtils
   PUBLIC OrbitBase
          OrbitProtos
-         abseil::abseil
+         absl::absl
          llvm_object::llvm_object
          Outcome::Outcome)
 
@@ -39,7 +39,7 @@ target_link_libraries(
           OrbitCore # TODO: This is needed for GetExecutablePath - consider moving it to OrbitBase
           GTest::Main
           llvm_object::llvm_object
-          abseil::abseil)
+          absl::absl)
 
 add_custom_command(TARGET ElfUtilsTests POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_LIST_DIR}/testdata

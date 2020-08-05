@@ -95,7 +95,7 @@ target_link_libraries(
          concurrentqueue::concurrentqueue
          multicore::multicore
          oqpi::oqpi
-         abseil::abseil
+         absl::absl
          llvm_object::llvm_object
          Outcome::Outcome)
 
@@ -144,7 +144,7 @@ target_link_libraries(
   PRIVATE OrbitCore
           GTest::Main
           llvm_object::llvm_object
-          abseil::abseil)
+          absl::absl)
 
 register_test(OrbitCoreTests)
 

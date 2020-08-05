@@ -32,7 +32,7 @@ target_sources(OrbitBase PRIVATE
         SafeStrerror.cpp)
 
 target_link_libraries(OrbitBase PUBLIC
-        abseil::abseil
+        absl::absl
         std::filesystem)
 
 add_executable(OrbitBaseTests)

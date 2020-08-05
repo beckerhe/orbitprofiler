@@ -110,7 +110,7 @@ if(WITH_GUI AND WITH_CRASH_HANDLING)
   find_package(crashpad CONFIG REQUIRED)
 endif()
 
-find_package(abseil CONFIG REQUIRED)
+find_package(absl CONFIG REQUIRED)
 find_package(libprotobuf-mutator CONFIG REQUIRED)
 find_package(llvm_object CONFIG REQUIRED)
 find_package(Outcome CONFIG REQUIRED)
