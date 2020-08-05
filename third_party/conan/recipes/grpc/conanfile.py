@@ -30,17 +30,23 @@ class grpcConan(ConanFile):
     _build_subfolder = "build_subfolder"
 
     requires = (
-        "abseil/20190808@orbitdeps/stable",
+        "abseil/20200205",
         "zlib/1.2.11",
-        "openssl/1.0.2t",
-        "protobuf/3.9.1@bincrafters/stable",
-        "c-ares/1.15.0@conan/stable"
+        "openssl/1.1.1g",
+        "protobuf/3.11.4",
+        "c-ares/1.16.1"
     )
 
-    build_requires = (
-        "protoc_installer/3.9.1@bincrafters/stable",
-        "grpc_codegen/{}@orbitdeps/stable".format(version),
-    )
+    def cross_building(self):
+        return tools.cross_building(self, skip_x64_x86=True) or (self.settings_build and self.settings.get_safe('os.platform') != self.settings_build.get_safe('os.platform'))
+
+    def build_requirements(self):
+        self.build_requires("protobuf/3.11.4")
+
+        if self.cross_building():
+            # We require ourself when cross-building since we need the grpc_cpp_plugin compiled for the build platform to build the grpc library.
+            self.build_requires("{}/{}@{}/{}".format(self.name, self.version, self.user, self.channel))
+
 
     def configure(self):
         if self.settings.os == "Windows" and self.settings.compiler == "Visual Studio":
@@ -48,8 +54,6 @@ class grpcConan(ConanFile):
             compiler_version = int(str(self.settings.compiler.version))
             if compiler_version < 14:
                 raise ConanInvalidConfiguration("gRPC can only be built with Visual Studio 2015 or higher.")
-
-        self.options["abseil"].cxx_standard = 17
 
     def source(self):
         tools.get(**self.conan_data["sources"][self.version])
@@ -62,8 +66,10 @@ class grpcConan(ConanFile):
         tools.replace_in_file(cmake_path, "absl::strings", "CONAN_PKG::abseil")
         tools.replace_in_file(cmake_path, "absl::optional", "CONAN_PKG::abseil")
         tools.replace_in_file(cmake_path, "absl::inlined_vector", "CONAN_PKG::abseil")
-        tools.replace_in_file(cmake_path, "set(_gRPC_CPP_PLUGIN $<TARGET_FILE:grpc_cpp_plugin>)", "find_program(_gRPC_CPP_PLUGIN grpc_cpp_plugin)")
-        tools.replace_in_file(cmake_path, "DEPENDS ${ABS_FIL} ${_gRPC_PROTOBUF_PROTOC} grpc_cpp_plugin", "DEPENDS ${ABS_FIL} ${_gRPC_PROTOBUF_PROTOC} ${_gRPC_CPP_PLUGIN}")
+
+        if self.cross_building():
+            tools.replace_in_file(cmake_path, "set(_gRPC_CPP_PLUGIN $<TARGET_FILE:grpc_cpp_plugin>)", "find_program(_gRPC_CPP_PLUGIN grpc_cpp_plugin)")
+            tools.replace_in_file(cmake_path, "DEPENDS ${ABS_FIL} ${_gRPC_PROTOBUF_PROTOC} grpc_cpp_plugin", "DEPENDS ${ABS_FIL} ${_gRPC_PROTOBUF_PROTOC} ${_gRPC_CPP_PLUGIN}")
 
     _cmake = None
     def _configure_cmake(self):
@@ -77,7 +83,8 @@ class grpcConan(ConanFile):
         cmake.definitions['gRPC_BUILD_TESTS'] = "OFF"
         cmake.definitions['gRPC_INSTALL'] = "ON"
 
-        cmake.definitions["gRPC_BUILD_GRPC_CPP_PLUGIN"] = "OFF"
+        settings_target = getattr(self, 'settings_target', None)
+        cmake.definitions["gRPC_BUILD_GRPC_CPP_PLUGIN"] = "ON"
         cmake.definitions["gRPC_BUILD_GRPC_CSHARP_PLUGIN"] = "OFF"
         cmake.definitions["gRPC_BUILD_GRPC_OBJECTIVE_C_PLUGIN"] = "OFF"
         cmake.definitions["gRPC_BUILD_GRPC_PHP_PLUGIN"] = "OFF"
@@ -102,7 +109,8 @@ class grpcConan(ConanFile):
             cmake.definitions["CMAKE_CXX_FLAGS"] = "-D_WIN32_WINNT=0x600"
             cmake.definitions["CMAKE_C_FLAGS"] = "-D_WIN32_WINNT=0x600"
 
-        cmake.configure(build_folder=self._build_subfolder)
+        with tools.run_environment(self):
+            cmake.configure(build_folder=self._build_subfolder)
         self._cmake = cmake
         return cmake
 
@@ -136,6 +144,7 @@ class grpcConan(ConanFile):
             "upb",
         ]
 
+        self.env_info.PATH.append(os.path.join(self.package_folder, "bin"))
 
         if self.settings.compiler == "Visual Studio":
             self.cpp_info.system_libs += ["wsock32", "ws2_32"]

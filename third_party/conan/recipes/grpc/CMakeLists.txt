@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD 17)
 include(conanbuildinfo.cmake)
 conan_basic_setup(TARGETS)
 
+message(STATUS "PATH=$ENV{PATH}")
 find_program(_gRPC_PROTOBUF_PROTOC_EXECUTABLE protoc)
 set(_gRPC_PROTOBUF_PROTOC_LIBRARIES CONAN_PKG::protobuf)
 set(_gRPC_PROTOBUF_LIBRARIES CONAN_PKG::protobuf)
