@@ -51,8 +51,9 @@ class OrbitConan(ConanFile):
             del self.options.crashdump_server
 
     def build_requirements(self):
-        self.build_requires('protoc_installer/3.9.1@bincrafters/stable#0')
-        self.build_requires('grpc_codegen/1.27.3@orbitdeps/stable#ec39b3cf6031361be942257523c1839a')
+        self.build_requires('protobuf/3.11.4#01a631677c7b0e8b8d2d536dca26cfee')
+        self.build_requires(
+            "grpc/1.27.3@{}#c0628516b933c33f56bf0ccb092e4b7c".format(self._orbit_channel))
         self.build_requires('gtest/1.10.0#ef88ba8e54f5ffad7d706062d0731a40', force_host_context=True)
 
     def requirements(self):
@@ -64,13 +65,14 @@ class OrbitConan(ConanFile):
         self.requires("bzip2/1.0.8@conan/stable#0")
         self.requires("capstone/4.0.1@{}#0".format(self._orbit_channel))
         self.requires(
-            "grpc/1.27.3@{}#dc2368a2df63276188566e36a6b7868a".format(self._orbit_channel))
+            "grpc/1.27.3@{}#c0628516b933c33f56bf0ccb092e4b7c".format(self._orbit_channel))
         self.requires("llvm_object/9.0.1-2@orbitdeps/stable#9fbb81e87811594e3ed6316e97675b86")
         self.requires("lzma_sdk/19.00@orbitdeps/stable#a7bc173325d7463a0757dee5b08bf7fd")
-        self.requires("openssl/1.1.1d@{}#0".format(self._orbit_channel))
+        self.requires("openssl/1.1.1g#58b78c1738d0cff868861e077e707ca4")
         self.requires("Outcome/3dae433e@orbitdeps/stable#0")
+        self.requires('protobuf/3.11.4#01a631677c7b0e8b8d2d536dca26cfee')
         self.requires(
-            "libprotobuf-mutator/20200506@{}#4ed8fc67624c9a35b7b0227e93c9d3c4".format(self._orbit_channel))
+            "libprotobuf-mutator/20200506@{}#31d46d2bfc039f857c8e7ef6660a668a".format(self._orbit_channel))
         if self.settings.os != "Windows":
             self.requires(
                 "libunwindstack/80a734f14@{}#0".format(self._orbit_channel))

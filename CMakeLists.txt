@@ -81,7 +81,7 @@ find_package(xxHash REQUIRED)
 find_package(multicore REQUIRED)
 find_package(concurrentqueue REQUIRED)
 find_package(gte REQUIRED)
-find_package(protobuf CONFIG REQUIRED)
+find_package(Protobuf CONFIG REQUIRED)
 find_package(grpc CONFIG REQUIRED)
 
 include("third_party/protobuf/protobuf-generate.cmake")
