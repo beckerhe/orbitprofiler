@@ -53,8 +53,16 @@ class OrbitConan(ConanFile):
     def build_requirements(self):
         self.build_requires('protobuf/3.11.4#01a631677c7b0e8b8d2d536dca26cfee')
         self.build_requires(
-            "grpc/1.27.3@{}#c0628516b933c33f56bf0ccb092e4b7c".format(self._orbit_channel))
+            "grpc/1.27.3@{}#9e1213e1b918d1e98f2fc4e66e9be721".format(self._orbit_channel))
         self.build_requires('gtest/1.10.0#ef88ba8e54f5ffad7d706062d0731a40', force_host_context=True)
+
+        if self.settings_build and self.settings_build.os == "Windows":
+            del self.build_requires_options["grpc"].fPIC
+            del self.build_requires_options["protobuf"].fPIC
+            del self.build_requires_options["abseil"].fPIC
+            del self.build_requires_options["zlib"].fPIC
+            del self.build_requires_options["openssl"].fPIC
+            del self.build_requires_options["c-ares"].fPIC
 
     def requirements(self):
         if self.settings.os != "Windows" and self.options.with_gui and not self.options.system_qt and self.options.system_mesa:
@@ -65,7 +73,7 @@ class OrbitConan(ConanFile):
         self.requires("bzip2/1.0.8@conan/stable#0")
         self.requires("capstone/4.0.1@{}#0".format(self._orbit_channel))
         self.requires(
-            "grpc/1.27.3@{}#c0628516b933c33f56bf0ccb092e4b7c".format(self._orbit_channel))
+            "grpc/1.27.3@{}#9e1213e1b918d1e98f2fc4e66e9be721".format(self._orbit_channel))
         self.requires("llvm_object/9.0.1-2@orbitdeps/stable#9fbb81e87811594e3ed6316e97675b86")
         self.requires("lzma_sdk/19.00@orbitdeps/stable#a7bc173325d7463a0757dee5b08bf7fd")
         self.requires("openssl/1.1.1g#58b78c1738d0cff868861e077e707ca4")
