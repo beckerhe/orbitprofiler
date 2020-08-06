@@ -1,5 +1,6 @@
 from conans import ConanFile, CMake, tools
 from conans.errors import ConanInvalidConfiguration
+from conans.model.options import OptionsValues
 import os
 import shutil
 import time
@@ -30,7 +31,7 @@ class grpcConan(ConanFile):
     _build_subfolder = "build_subfolder"
 
     requires = (
-        "abseil/20200205",
+        "abseil/20200225.2",
         "zlib/1.2.11",
         "openssl/1.1.1g",
         "protobuf/3.11.4",
@@ -47,10 +48,30 @@ class grpcConan(ConanFile):
             # We require ourself when cross-building since we need the grpc_cpp_plugin compiled for the build platform to build the grpc library.
             self.build_requires("{}/{}@{}/{}".format(self.name, self.version, self.user, self.channel))
 
+        if self.settings_build and self.settings_build.os == "Windows":
+            del self.build_requires_options["abseil"].fPIC
+            del self.build_requires_options["openssl"].fPIC
+            del self.build_requires_options["zlib"].fPIC
+            del self.build_requires_options["protobuf"].fPIC
+            del self.build_requires_options["c-ares"].fPIC
+
+            if self.cross_building():
+                del self.build_requires_options[self.name].fPIC
+
+
+    def config_options(self):
+        if self.settings.os == "Windows":
+            del self.options.fPIC
 
     def configure(self):
+        #if self.settings.os == "Windows":
+        #    # That's a work-around. Somehow fPIC gets propagated even though it was removed in config_options()
+        #    for req in self.requires:
+        #        name = req.split("/", 1)[0]
+        #        del self.options[name].fPIC
+
+
         if self.settings.os == "Windows" and self.settings.compiler == "Visual Studio":
-            del self.options.fPIC
             compiler_version = int(str(self.settings.compiler.version))
             if compiler_version < 14:
                 raise ConanInvalidConfiguration("gRPC can only be built with Visual Studio 2015 or higher.")
