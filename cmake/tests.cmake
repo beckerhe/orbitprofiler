@@ -2,20 +2,65 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-function(register_test)
-  set(TEST_TARGET "${ARGV0}")
+# The register_test function automatically registers a test with CTest.
+# So it will be automatically executed in the CI and a xUnit-based XML
+# report will be generated.
+#
+# Usage examples:
+# - default:
+#  register_test(OrbitQtTests)
+#
+# - with test isolation:
+#  register_test(OrbitQtTests SUBTESTS Test1 Test2)
+#    Unfortunately test isolation requires to list all
+#    GTest-tests in the SUBTESTS option.
+#
+# - with custom timeout:
+#  register_test(OrbitQtTests TIMEOUT 120)
+#
+# - combined:
+#  register_test(OrbitQtTests SUBTESTS Test1 Test2 TIMEOUT 120)
+
+function(register_test TEST_TARGET)
+  cmake_parse_arguments(ARGS "" "TIMEOUT" "SUBTESTS" ${ARGN})
   string(REGEX REPLACE "Tests$" "" TEST_NAME "${TEST_TARGET}")
 
   set(TESTRESULTS_DIRECTORY "${CMAKE_BINARY_DIR}/testresults")
-  add_test(
-    NAME "${TEST_NAME}"
-    COMMAND
-      "$<TARGET_FILE:${TEST_TARGET}>"
-      "--gtest_output=xml:${TESTRESULTS_DIRECTORY}/${TEST_NAME}_sponge_log.xml")
+
+  if(NOT ARGS_SUBTESTS)
+    set(ARGS_SUBTESTS "*")
+  endif()
+
+  set(TESTS "")
+
+  foreach(SUBTEST ${ARGS_SUBTESTS})
+    if ("${SUBTEST}" STREQUAL "*")
+      set(CURRENT_TEST_NAME "${TEST_NAME}")
+    else()
+      set(CURRENT_TEST_NAME "${TEST_NAME}.${SUBTEST}")
+    endif()
+
+    add_test(
+      NAME "${CURRENT_TEST_NAME}"
+      COMMAND
+        "$<TARGET_FILE:${TEST_TARGET}>"
+        "--gtest_filter=${SUBTEST}"
+        "--gtest_output=xml:${TESTRESULTS_DIRECTORY}/${CURRENT_TEST_NAME}_sponge_log.xml")
+
+    if(ARGS_TIMEOUT)
+      set_tests_properties(${CURRENT_TEST_NAME} PROPERTIES TIMEOUT ${ARGS_TIMEOUT})
+    else()
+      set_tests_properties(${CURRENT_TEST_NAME} PROPERTIES TIMEOUT 30)
+    endif()
+
+    list(APPEND TESTS "${CURRENT_TEST_NAME}")
+  endforeach()
+
+  set(${TEST_TARGET} ${TESTS} PARENT_SCOPE)
 endfunction()
 
 if(NOT TARGET GTest::GTest)
-        add_library(GTest::GTest INTERFACE IMPORTED)
+  add_library(GTest::GTest INTERFACE IMPORTED)
   target_link_libraries(GTest::GTest INTERFACE CONAN_PKG::gtest)
 endif()
 
