@@ -424,21 +424,28 @@ void OrbitApp::Disassemble(int32_t pid, const FunctionInfo& function) {
     }
 
     const std::string& memory = result.value();
-    Disassembler disasm;
-    disasm.AddLine(absl::StrFormat("asm: /* %s */", FunctionUtils::GetDisplayName(function)));
-    disasm.Disassemble(memory.data(), memory.size(), FunctionUtils::GetAbsoluteAddress(function),
-                       is_64_bit);
+    const orbit_gl::CodeSegmentView code_segment{
+        memory.data(), memory.size(), FunctionUtils::GetAbsoluteAddress(function),
+        is_64_bit ? orbit_gl::Architecture::kX86_64 : orbit_gl::Architecture::kX86};
+    auto disassembly = orbit_gl::Disassemble(code_segment, FunctionUtils::GetDisplayName(function));
+
+    if (!disassembly) {
+      SendErrorToUi("Error while disassembling code segment", disassembly.error().message());
+      return;
+    }
+
     if (!sampling_report_) {
-      DisassemblyReport empty_report(disasm);
-      SendDisassemblyToUi(disasm.GetResult(), std::move(empty_report));
+      DisassemblyReport empty_report{disassembly.value().line_to_address};
+      SendDisassemblyToUi(std::move(disassembly.value()), std::move(empty_report));
       return;
     }
     const CaptureData& capture_data = GetCaptureData();
     const SamplingProfiler& profiler = capture_data.sampling_profiler();
 
-    DisassemblyReport report(disasm, FunctionUtils::GetAbsoluteAddress(function), profiler,
+    DisassemblyReport report(disassembly.value().line_to_address,
+                             FunctionUtils::GetAbsoluteAddress(function), profiler,
                              capture_data.GetCallstackData()->GetCallstackEventsCount());
-    SendDisassemblyToUi(disasm.GetResult(), std::move(report));
+    SendDisassemblyToUi(std::move(disassembly.value()), std::move(report));
   });
 }
 
@@ -791,7 +798,8 @@ bool OrbitApp::SelectProcess(const std::string& process) {
   return false;
 }
 
-void OrbitApp::SendDisassemblyToUi(std::string disassembly, DisassemblyReport report) {
+void OrbitApp::SendDisassemblyToUi(orbit_gl::DisassembledCode disassembly,
+                                   DisassemblyReport report) {
   main_thread_executor_->Schedule(
       [this, disassembly = std::move(disassembly), report = std::move(report)]() mutable {
         CHECK(disassembly_callback_);

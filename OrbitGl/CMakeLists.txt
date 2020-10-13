@@ -74,7 +74,7 @@ target_sources(
           DataManager.cpp
           DataView.cpp
           Disassembler.cpp
-          DisassemblyReport.cc
+          DisassemblyReport.cpp
           EventTrack.cpp
           FramePointerValidatorClient.cpp
           FrameTrack.cpp
