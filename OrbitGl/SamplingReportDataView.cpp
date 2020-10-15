@@ -187,7 +187,7 @@ std::vector<std::string> SamplingReportDataView::GetContextMenu(
   absl::flat_hash_set<const FunctionInfo*> selected_functions =
       GetFunctionsFromIndices(selected_indices);
 
-  bool enable_disassembly = !selected_functions.empty();
+  const bool enable_disassembly = selected_functions.size() == 1;
 
   for (const FunctionInfo* function : selected_functions) {
     enable_select |= !GOrbitApp->IsFunctionSelected(*function);
