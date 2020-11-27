@@ -70,10 +70,7 @@
     "context": "host"
    },
    "7": {
-    "ref": "openssl/1.1.1d@orbitdeps/stable#0",
-    "requires": [
-     "6"
-    ],
+    "ref": "openssl/1.1.1h#a54ec92b792d10b6595c581a15ad2cd7",
     "context": "host"
    },
    "8": {
