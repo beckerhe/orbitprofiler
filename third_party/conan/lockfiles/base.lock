@@ -544,7 +544,7 @@
     "context": "host"
    },
    "64": {
-    "ref": "qt/5.15.1@orbitdeps/stable#e659e981368e4baba1a201b75ddb89b6",
+    "ref": "qt/5.15.1@orbitdeps/stable#10cc4c6fe3f10dc4119c9b0d41936e8e",
     "requires": [
      "6",
      "7",
