@@ -76,9 +76,9 @@ EOF
   fi # which dpkg-query
 fi # IGNORE_SYS_REQ
 
-readonly PREFERRED_CONAN_VERSION="1.29.2"
+readonly PREFERRED_CONAN_VERSION="1.31.4"
 readonly CONAN_VERSION_MAJOR_REQUIRED=1
-readonly CONAN_VERSION_MINOR_MIN=29
+readonly CONAN_VERSION_MINOR_MIN=31
 
 echo "Checking if conan is available..."
 which conan >/dev/null

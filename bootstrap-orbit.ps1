@@ -4,9 +4,9 @@
 
 $conan = Get-Command -ErrorAction Ignore conan
 
-Set-Variable preferred_conan_version -option ReadOnly -value "1.29.2"
+Set-Variable preferred_conan_version -option ReadOnly -value "1.31.4"
 Set-Variable conan_version_major_required -option ReadOnly -value 1
-Set-Variable conan_version_minor_min -option ReadOnly -value 29
+Set-Variable conan_version_minor_min -option ReadOnly -value 31
 
 if (!$conan) {
   Write-Host "Conan not found. Trying to install it via python-pip..."
