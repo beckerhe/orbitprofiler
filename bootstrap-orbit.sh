@@ -76,11 +76,15 @@ EOF
   fi # which dpkg-query
 fi # IGNORE_SYS_REQ
 
+readonly PREFERRED_CONAN_VERSION="1.29.2"
+readonly CONAN_VERSION_MAJOR_REQUIRED=1
+readonly CONAN_VERSION_MINOR_MIN=29
+
 echo "Checking if conan is available..."
 which conan >/dev/null
 if [ $? -ne 0 ]; then
   echo "Couldn't find conan. Trying to install via pip..."
-  pip3 install --user conan==1.29.2 || exit $?
+  pip3 install --user conan==${PREFERRED_CONAN_VERSION} || exit $?
 
   which conan >/dev/null
   if [ $? -ne 0 ]; then
@@ -99,12 +103,10 @@ else
   CONAN_VERSION_MAJOR="$(echo "$CONAN_VERSION" | cut -d'.' -f1)"
   CONAN_VERSION_MINOR="$(echo "$CONAN_VERSION" | cut -d'.' -f2)"
 
-  CONAN_VERSION_MAJOR_REQUIRED=1
-  CONAN_VERSION_MINOR_MIN=29
 
   if [ "$CONAN_VERSION_MAJOR" -eq $CONAN_VERSION_MAJOR_REQUIRED -a "$CONAN_VERSION_MINOR" -lt $CONAN_VERSION_MINOR_MIN ]; then
     echo "Your conan version $CONAN_VERSION is too old. I will try to update..."
-    pip3 install --upgrade --user conan==1.29.2
+    pip3 install --upgrade --user conan==${PREFERRED_CONAN_VERSION}
     if [ $? -ne 0 ]; then
       echo "The upgrade of your conan installation failed. Probably because conan was not installed by this script."
       echo "Please manually update conan to at least version $CONAN_VERSION_MAJOR_REQUIRED.$CONAN_VERSION_MINOR_MIN."
