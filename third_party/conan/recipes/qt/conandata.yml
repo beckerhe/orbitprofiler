@@ -97,3 +97,5 @@ patches:
       base_path: "qt5/qtbase"
     - patch_file: "patches/torque.diff"
       base_path: "qt5/qtwebengine"
+    - patch_file: "patches/angle.diff"
+      base_path: "qt5/qtwebengine"
