@@ -486,6 +486,9 @@ OrbitMainWindow::~OrbitMainWindow() {
   }
 
   ui->CaptureGLWidget->Deinitialize(this);
+  ui->SessionList->Deinitialize();
+  ui->FunctionsList->Deinitialize();
+  ui->ModulesList->Deinitialize();
   ui->ProcessesList->ClearDataView();
 
   delete ui;
