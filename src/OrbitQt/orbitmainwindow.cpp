@@ -1134,6 +1134,10 @@ void OrbitMainWindow::closeEvent(QCloseEvent* event) {
       app_->AbortCapture();
     }
   } else {
+    const auto* target = std::get_if<orbit_qt::StadiaTarget>(&target_configuration_);
+    if (target != nullptr) {
+      target->GetConnection()->GetServiceDeployManager()->Cancel();
+    }
     if (main_thread_executor_) {
       main_thread_executor_->AbortWaitingJobs();
     }
