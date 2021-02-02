@@ -1167,7 +1167,9 @@ void OrbitApp::LoadSymbols(const std::filesystem::path& symbols_path, ModuleData
     scoped_status.UpdateMessage(message);
     LOG("%s", message);
 
-    main_thread_executor_->Schedule(
+	auto executor = main_thread_executor.lock();
+	if (executor == nullptr) return;
+    executor->Schedule(
         [this, scoped_status = std::move(scoped_status), module_data,
          function_hashes_to_hook = std::move(function_hashes_to_hook),
          frame_track_function_hashes = std::move(frame_track_function_hashes)] {
