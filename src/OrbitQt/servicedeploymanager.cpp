@@ -8,10 +8,12 @@
 #include <absl/flags/flag.h>
 #include <absl/strings/str_format.h>
 #include <absl/strings/str_split.h>
+#include <qeventloop.h>
 
 #include <QApplication>
 #include <QEventLoop>
 #include <QMetaObject>
+#include <QTimer>
 #include <Qt>
 #include <chrono>
 #include <filesystem>
@@ -317,6 +319,9 @@ ErrorMessageOr<void> ServiceDeployManager::CopyFileToLocalImpl(std::string_view 
     return ErrorMessage(absl::StrFormat(R"(Error copying remote "%s" to "%s": %s)", source,
                                         destination, result.error().message()));
   }
+
+  QTimer::singleShot(10'000, &loop, &EventLoop::quit);
+  (void)loop.exec();
 
   auto sftp_channel_stop_result = StopSftpChannel(sftp_channel.value().get());
 
