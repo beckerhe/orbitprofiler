@@ -1155,7 +1155,8 @@ void OrbitApp::LoadSymbols(const std::filesystem::path& symbols_path, ModuleData
   thread_pool_->Schedule([this, scoped_status = std::move(scoped_status), symbols_path, module_data,
                           function_hashes_to_hook = std::move(function_hashes_to_hook),
                           frame_track_function_hashes =
-                              std::move(frame_track_function_hashes)]() mutable {
+                              std::move(frame_track_function_hashes),
+  main_thread_executor = main_thread_executor_->GetWeakPointer()]() mutable {
     auto symbols_result = SymbolHelper::LoadSymbolsFromFile(symbols_path);
     CHECK(symbols_result);
     module_data->AddSymbols(symbols_result.value());
@@ -1648,7 +1649,7 @@ bool OrbitApp::IsCapturing() const {
 ScopedStatus OrbitApp::CreateScopedStatus(const std::string& initial_message) {
   CHECK(std::this_thread::get_id() == main_thread_id_);
   CHECK(status_listener_ != nullptr);
-  return ScopedStatus{GetMainThreadExecutor(), status_listener_, initial_message};
+  return ScopedStatus{GetMainThreadExecutor()->GetWeakPointer(), status_listener_, initial_message};
 }
 
 void OrbitApp::SelectTracepoint(const TracepointInfo& tracepoint) {

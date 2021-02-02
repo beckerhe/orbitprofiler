@@ -39,6 +39,8 @@ class MainThreadExecutor : public std::enable_shared_from_this<MainThreadExecuto
   MainThreadExecutor() = default;
   virtual ~MainThreadExecutor() = default;
 
+  std::weak_ptr<MainThreadExecutor> GetWeakPointer() { return weak_from_this(); }
+
   // Schedules the action to be performed on the main thread.
   virtual void Schedule(std::unique_ptr<Action> action) = 0;
 
