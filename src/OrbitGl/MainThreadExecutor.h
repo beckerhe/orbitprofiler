@@ -8,12 +8,14 @@
 #include <absl/types/span.h>
 
 #include <chrono>
+#include <list>
 #include <memory>
 #include <thread>
 #include <type_traits>
 #include <utility>
 
 #include "OrbitBase/Action.h"
+#include "OrbitBase/AnyMovable.h"
 #include "OrbitBase/Future.h"
 #include "OrbitBase/FutureHelpers.h"
 #include "OrbitBase/Promise.h"
@@ -80,16 +82,22 @@ class MainThreadExecutor : public std::enable_shared_from_this<MainThreadExecuto
     orbit_base::Promise<ReturnType> promise{};
     orbit_base::Future<ReturnType> resulting_future = promise.GetFuture();
 
-    auto continuation = [functor = std::forward<F>(functor), executor_weak_ptr = weak_from_this(),
+    waiting_continuations_.emplace_front(std::forward<F>(functor));
+    auto function_reference = waiting_continuations_.begin();
+
+    auto continuation = [this, function_reference, executor_weak_ptr = weak_from_this(),
                          promise = std::move(promise)](auto&&... argument) mutable {
       auto executor = executor_weak_ptr.lock();
       if (executor == nullptr) return;
 
       auto function_wrapper =
-          [functor = std::move(functor), promise = std::move(promise),
+          [this, function_reference, promise = std::move(promise),
            argument = std::make_tuple(std::forward<decltype(argument)>(argument)...)]() mutable {
             orbit_base::CallTaskAndSetResultInPromise<ReturnType> helper{&promise};
-            std::apply([&](auto... args) { helper.Call(functor, args...); }, std::move(argument));
+            auto functor = orbit_base::any_movable_cast<std::decay_t<F>>(&*function_reference);
+            CHECK(functor != nullptr);
+            std::apply([&](auto... args) { helper.Call(*functor, args...); }, std::move(argument));
+            waiting_continuations_.erase(function_reference);
           };
       executor->Schedule(CreateAction(std::move(function_wrapper)));
     };
@@ -110,6 +118,9 @@ class MainThreadExecutor : public std::enable_shared_from_this<MainThreadExecuto
   [[nodiscard]] virtual WaitResult WaitForAll(absl::Span<orbit_base::Future<void>> futures) = 0;
 
   virtual void AbortWaitingJobs() = 0;
+
+ private:
+  std::list<orbit_base::AnyMovable> waiting_continuations_;
 };
 
 template <typename F>

@@ -105,13 +105,23 @@ TEST(MainThreadExecutorImpl, ScheduleAfterWithExecutorOutOfScope) {
 
   auto executor = MainThreadExecutorImpl::Create();
 
+  bool destructor_called = false;
+  const auto deleter = [&destructor_called](const int* ptr) {
+    destructor_called = true;
+    delete ptr; // NOLINT
+  };
+  std::unique_ptr<int, decltype(deleter)> unique_resource{new int{}, deleter};
+
   bool called = false;
-  auto future2 = executor->ScheduleAfter(future, [&called]() { called = true; });
+  auto future2 = executor->ScheduleAfter(
+      future, [&called, unique_resource = std::move(unique_resource)]() { called = true; });
 
   QCoreApplication::processEvents();
   EXPECT_FALSE(called);
+  EXPECT_FALSE(destructor_called);
 
   executor.reset();
+  EXPECT_TRUE(destructor_called);
   promise.MarkFinished();
   QCoreApplication::processEvents();
   EXPECT_FALSE(called);
