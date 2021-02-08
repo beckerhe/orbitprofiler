@@ -15,6 +15,7 @@
 
 #include "OrbitBase/Action.h"
 #include "OrbitBase/Future.h"
+#include "OrbitBase/FutureHelpers.h"
 #include "OrbitBase/Promise.h"
 #include "OrbitBase/PromiseHelpers.h"
 
@@ -100,17 +101,7 @@ class MainThreadExecutor : public std::enable_shared_from_this<MainThreadExecuto
       executor->Schedule(CreateAction(std::move(function_wrapper)));
     };
 
-    const orbit_base::FutureRegisterContinuationResult result =
-        future.RegisterContinuation(std::move(continuation));
-
-    if (result != orbit_base::FutureRegisterContinuationResult::kSuccessfullyRegistered) {
-      // If the future has already been finished, we call the continuation here.
-      // Keep in mind, this will not run the task synchronously. This will only
-      // SCHEDULE the task synchronously.
-      orbit_base::GetResultFromFutureAndCallContinuation<T> helper{&future};
-      helper.Call(continuation);
-    }
-
+    orbit_base::RegisterContinuationOrCallDirectly(future, std::move(continuation));
     return resulting_future;
   }
 
