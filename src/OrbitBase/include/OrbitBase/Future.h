@@ -43,44 +43,18 @@ class FutureBase {
   std::shared_ptr<SharedState<T>> shared_state_;
 };
 
-}  // namespace orbit_base_internal
-
-namespace orbit_base {
-
 enum class FutureRegisterContinuationResult {
   kSuccessfullyRegistered,
   kFutureAlreadyCompleted,
   kFutureNotValid
 };
 
-// A future type, similar to std::future but prepared to integrate with
-// Orbit-specific code like MainThreadExecutor and ThreadPool.
-//
-// Future is a result type for an asynchronous task, where the result
-// will not be available right away, but to a later point in time.
-//
-// A valid Future<T> is created from a Promise<T>. The latter lives in the
-// asynchronous task and its purpose is to notify the Future<T> when the result
-// is available.
-//
-// Use Future<T>::IsValid() to check if a future is connected to a promise or holds
-// a result value.
-//
-// Call Future<T>::IsFinished() to figure out if the result is already available.
-//
-// To retrieve the T, you can call Future<T>::Get(). It will block when the result
-// is not yet available.
-//
-// Real-world examples should involved an executor like MainThreadExecutor or ThreadPool.
-// Check-out their tests and docs to learn how to use Future.
-//
-// The default constructor creates a completed future. This is handy as a return value.
 template <typename T>
 class [[nodiscard]] Future : public orbit_base_internal::FutureBase<T> {
  public:
   // Constructs a completed future
   template <typename... Args>
-  explicit Future(Args && ... args)
+  explicit Future(Args&&... args)
       : orbit_base_internal::FutureBase<T>{
             std::make_shared<orbit_base_internal::SharedState<T>>()} {
     this->shared_state_->result.emplace(std::forward<Args>(args)...);
@@ -107,8 +81,8 @@ class [[nodiscard]] Future : public orbit_base_internal::FutureBase<T> {
   // which means you have to be aware of race-conditions while registering
   // the continuation and potential mutex deadlocks in the continuation.
   template <typename Invocable>
-  [[nodiscard]] FutureRegisterContinuationResult RegisterContinuation(Invocable && continuation)
-      const {
+  [[nodiscard]] FutureRegisterContinuationResult RegisterContinuation(
+      Invocable&& continuation) const {
     if (!this->IsValid()) return FutureRegisterContinuationResult::kFutureNotValid;
 
     absl::MutexLock lock{&this->shared_state_->mutex};
@@ -137,7 +111,7 @@ class [[nodiscard]] Future : public orbit_base_internal::FutureBase<T> {
   // Note: Usually `invocable` won't be executed if `executor` gets destroyed before `*this`
   // completes. Check the docs or implementation of `Executor::ScheduleAfter` to be sure.
   template <typename Executor, typename Invocable>
-  auto Then(Executor * executor, Invocable && invocable) const {
+  auto Then(Executor* executor, Invocable&& invocable) const {
     return executor->ScheduleAfter(*this, std::forward<Invocable>(invocable));
   }
 
@@ -213,6 +187,41 @@ class Future<void> : public orbit_base_internal::FutureBase<void> {
 
   using orbit_base_internal::FutureBase<void>::FutureBase;
 };
+
+}  // namespace orbit_base_internal
+
+namespace orbit_base {
+
+using FutureRegisterContinuationResult = orbit_base_internal::FutureRegisterContinuationResult;
+
+// A future type, similar to std::future but prepared to integrate with
+// Orbit-specific code like MainThreadExecutor and ThreadPool.
+//
+// Future is a result type for an asynchronous task, where the result
+// will not be available right away, but to a later point in time.
+//
+// A valid Future<T> is created from a Promise<T>. The latter lives in the
+// asynchronous task and its purpose is to notify the Future<T> when the result
+// is available.
+//
+// Use Future<T>::IsValid() to check if a future is connected to a promise or holds
+// a result value.
+//
+// Call Future<T>::IsFinished() to figure out if the result is already available.
+//
+// To retrieve the T, you can call Future<T>::Get(). It will block when the result
+// is not yet available.
+//
+// Real-world examples should involved an executor like MainThreadExecutor or ThreadPool.
+// Check-out their tests and docs to learn how to use Future.
+//
+// The default constructor creates a completed future. This is handy as a return value.
+template <typename T>
+class Future : public orbit_base_internal::Future<T> {
+ public:
+  using orbit_base_internal::Future<T>::Future;
+};
+
 }  // namespace orbit_base
 
 #endif  // ORBIT_BASE_FUTURE_H_
