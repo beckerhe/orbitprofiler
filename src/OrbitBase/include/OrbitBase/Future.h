@@ -23,15 +23,25 @@ namespace orbit_base_internal {
 template <typename T>
 class PromiseBase;
 
-// FutureBase<T> is an internal base class for Future<T>. Check out Future<T> below for more
-// information.
-template <typename T>
+// `orbit_base_internal::FutureBase<T, Derived>` is an internal base class for
+// `orbit_base_internal::Future<T, Derived>`. It contains all the methods which apply to all `T`.
+//
+// `orbit_base_internal::Future<T, Derived>` has a specialization for `T = void` which is necessary
+// since `Future<void>` has a different API surface. (No Get() method etc.)
+//
+// orbit_base::Future<T> is the public facing type. It has a specialization for `T =
+// ErrorMessageOr<U>` to allow `ScheduleAfterIfSuccess` and a specialization for `T = void` which is
+// not declared `nodiscard`.
+//
+// Whenever you add methods to this inheritance hierarchy, try to implement your methods as low as
+// possible to avoid code duplication.
+template <typename T, typename Derived>
 class FutureBase {
  public:
   FutureBase(const FutureBase&) = default;
   FutureBase& operator=(const FutureBase&) = default;
-  FutureBase(FutureBase&&) = default;
-  FutureBase& operator=(FutureBase&&) = default;
+  FutureBase(FutureBase&&) noexcept = default;
+  FutureBase& operator=(FutureBase&&) noexcept = default;
   ~FutureBase() noexcept = default;
 
   [[nodiscard]] bool IsValid() const { return shared_state_.use_count() > 0; }
@@ -41,6 +51,11 @@ class FutureBase {
       : shared_state_{std::move(shared_state)} {}
 
   std::shared_ptr<SharedState<T>> shared_state_;
+
+  // We use the CRTP-pattern to be able to get a pointer to the public facing type
+  // `orbit_base::Future`.
+  [[nodiscard]] const Derived& self() const { return *static_cast<const Derived*>(this); }
+  [[nodiscard]] Derived& self() { return *static_cast<Derived*>(this); }
 };
 
 enum class FutureRegisterContinuationResult {
@@ -49,13 +64,13 @@ enum class FutureRegisterContinuationResult {
   kFutureNotValid
 };
 
-template <typename T>
-class [[nodiscard]] Future : public orbit_base_internal::FutureBase<T> {
+template <typename T, typename Derived>
+class Future : public orbit_base_internal::FutureBase<T, Derived> {
  public:
   // Constructs a completed future
   template <typename... Args>
   explicit Future(Args&&... args)
-      : orbit_base_internal::FutureBase<T>{
+      : orbit_base_internal::FutureBase<T, Derived>{
             std::make_shared<orbit_base_internal::SharedState<T>>()} {
     this->shared_state_->result.emplace(std::forward<Args>(args)...);
   }
@@ -112,13 +127,11 @@ class [[nodiscard]] Future : public orbit_base_internal::FutureBase<T> {
   // completes. Check the docs or implementation of `Executor::ScheduleAfter` to be sure.
   template <typename Executor, typename Invocable>
   auto Then(Executor* executor, Invocable&& invocable) const {
-    return executor->ScheduleAfter(*this, std::forward<Invocable>(invocable));
+    return executor->ScheduleAfter(this->self(), std::forward<Invocable>(invocable));
   }
 
  private:
-  friend orbit_base_internal::PromiseBase<T>;
-
-  using orbit_base_internal::FutureBase<T>::FutureBase;
+  using orbit_base_internal::FutureBase<T, Derived>::FutureBase;
 };
 
 // Future<void> is a specialization of Future<T> for asynchronous tasks that return `void`.
@@ -129,21 +142,21 @@ class [[nodiscard]] Future : public orbit_base_internal::FutureBase<T> {
 // Unlike Future<T>, Future<void> has no `Get()` method since there is no return value.
 //
 // The default constructor creates a completed future. This is handy as a return value.
-template <>
-class Future<void> : public orbit_base_internal::FutureBase<void> {
+template <typename Derived>
+class Future<void, Derived> : public orbit_base_internal::FutureBase<void, Derived> {
  public:
   // Constructs a completed future
   explicit Future()
-      : orbit_base_internal::FutureBase<void>{
+      : orbit_base_internal::FutureBase<void, Derived>{
             std::make_shared<orbit_base_internal::SharedState<void>>()} {
     this->shared_state_->finished = true;
   }
 
   [[nodiscard]] bool IsFinished() const {
-    if (shared_state_.use_count() == 0) return false;
+    if (this->shared_state_.use_count() == 0) return false;
 
-    absl::MutexLock lock{&shared_state_->mutex};
-    return shared_state_->finished;
+    absl::MutexLock lock{&this->shared_state_->mutex};
+    return this->shared_state_->finished;
   }
 
   // Check Future<T>::RegisterContinuation for a warning about this function.
@@ -166,10 +179,10 @@ class Future<void> : public orbit_base_internal::FutureBase<void> {
   }
 
   void Wait() const {
-    CHECK(IsValid());
+    CHECK(this->IsValid());
     absl::MutexLock lock{&this->shared_state_->mutex};
-    shared_state_->mutex.Await(absl::Condition(
-        +[](bool* finished) { return *finished; }, &shared_state_->finished));
+    this->shared_state_->mutex.Await(absl::Condition(
+        +[](bool* finished) { return *finished; }, &this->shared_state_->finished));
   }
 
   // This is syntactic sugar for MainThreadExecutor (or maybe other executors in the future).
@@ -183,9 +196,7 @@ class Future<void> : public orbit_base_internal::FutureBase<void> {
   }
 
  private:
-  friend orbit_base_internal::PromiseBase<void>;
-
-  using orbit_base_internal::FutureBase<void>::FutureBase;
+  using orbit_base_internal::FutureBase<void, Derived>::FutureBase;
 };
 
 }  // namespace orbit_base_internal
@@ -217,9 +228,49 @@ using FutureRegisterContinuationResult = orbit_base_internal::FutureRegisterCont
 //
 // The default constructor creates a completed future. This is handy as a return value.
 template <typename T>
-class Future : public orbit_base_internal::Future<T> {
+class [[nodiscard]] Future : public orbit_base_internal::Future<T, Future<T>> {
+  friend orbit_base_internal::PromiseBase<T>;
+
  public:
-  using orbit_base_internal::Future<T>::Future;
+  using orbit_base_internal::Future<T, Future<T>>::Future;
+};
+
+// This specialization is necessary due to nodiscard. The syntactic differences of `void` compared
+// to a regular `T` is handled in `orbit_base_internal::Future<void>`, not here!
+template <>
+class Future<void> : public orbit_base_internal::Future<void, Future<void>> {
+  friend orbit_base_internal::PromiseBase<void>;
+
+ public:
+  using orbit_base_internal::Future<void, Future<void>>::Future;
+};
+
+// This specialization for ErrorMessageOr<T> adds an additional public member function
+// `ThenIfSuccess` which allows to schedule a continuation in case the `ErrorMessageOr<T>` comes
+// back successful.
+//
+// Check out the docs and implementation of your executor's `ScheduleAfterIfSuccess` method which is
+// actually doing the work. `ThenIfSuccess` is only syntactic sugar around
+// `AnyExecutor::ScheduleAfterIfSuccess`.
+template <typename T>
+class [[nodiscard]] Future<ErrorMessageOr<T>>
+    : public orbit_base_internal::Future<ErrorMessageOr<T>, Future<ErrorMessageOr<T>>> {
+  friend orbit_base_internal::PromiseBase<ErrorMessageOr<T>>;
+
+ public:
+  using orbit_base_internal::Future<ErrorMessageOr<T>, Future<ErrorMessageOr<T>>>::Future;
+
+  // This is syntactic sugar for MainThreadExecutor::ScheduleAfterIfSuccess.
+  // `invocable` will be executed by `executor` after this future has successfully completed.
+  // If it completes unsuccessful the returned future short-circuits and returns the error message
+  // immediately, without invoking the continuation.
+  //
+  // Note: Usually `invocable` won't be executed if `executor` gets destroyed before `*this`
+  // completes. Check the docs or implementation of `Executor::ScheduleAfter` to be sure.
+  template <typename Executor, typename Invocable>
+  auto ThenIfSuccess(Executor* executor, Invocable&& invocable) const {
+    return executor->ScheduleAfterIfSuccess(*this, std::forward<Invocable>(invocable));
+  }
 };
 
 }  // namespace orbit_base
