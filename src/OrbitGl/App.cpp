@@ -545,16 +545,19 @@ void OrbitApp::ShowSourceCode(const orbit_client_protos::FunctionInfo& function)
           [this, module,
            function](const std::filesystem::path& local_file_path) -> ErrorMessageOr<void> {
             const auto elf_file = orbit_elf_utils::ElfFile::Create(local_file_path);
-            const auto line_info = elf_file.value()->GetLineInfo(function.address());
+            const auto maybe_line_info = elf_file.value()->GetLineInfo(function.address());
 
-            if (line_info.has_error()) {
+            if (maybe_line_info.has_error()) {
               return ErrorMessage{absl::StrFormat(
                   "Could not find source code line info for function \"%s\" in module \"%s\": %s",
-                  function.pretty_name(), module->file_path(), line_info.error().message())};
+                  function.pretty_name(), module->file_path(), maybe_line_info.error().message())};
             }
 
-            main_window_->ShowSourceCode(std::filesystem::path{line_info.value().source_file()},
-                                         line_info.value().source_line());
+            const auto& line_info = maybe_line_info.value();
+            auto source_file_path =
+                std::filesystem::path{line_info.source_file()}.lexically_normal();
+
+            main_window_->ShowSourceCode(source_file_path, line_info.source_line());
             return outcome::success();
           })
       .Then(main_thread_executor_, [this](const ErrorMessageOr<void>& maybe_error) {
