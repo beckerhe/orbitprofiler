@@ -7,6 +7,7 @@
 #include <absl/strings/match.h>
 
 #include <filesystem>
+#include <optional>
 #include <system_error>
 
 namespace orbit_source_paths_mapping {
@@ -41,4 +42,21 @@ std::optional<std::filesystem::path> MapToFirstExistingTarget(
 
   return std::nullopt;
 }
+
+std::optional<Mapping> InferMappingFromExample(const std::filesystem::path& source_path,
+                                               const std::filesystem::path& target_path) {
+  if (source_path.filename() != target_path.filename()) return std::nullopt;
+  if (source_path == target_path) return std::nullopt;
+
+  auto source = source_path;
+  auto target = target_path;
+
+  while (source.has_filename() && target.has_filename() && source.filename() == target.filename()) {
+    source = source.parent_path();
+    target = target.parent_path();
+  }
+
+  return Mapping{source, target};
+}
+
 }  // namespace orbit_source_paths_mapping
