@@ -310,11 +310,21 @@ ErrorMessageOr<LineInfo> orbit_elf_utils::ElfFileImpl<ElfT>::GetLineInfo(uint64_
     return ErrorMessage(absl::StrFormat("Unable to get line info for address=0x%x", address));
   }
 
-  const uint32_t last_frame = number_of_frames - 1;
+  for (size_t i = 0; i < number_of_frames; ++i) {
+    LOG("  Frame %d: %s:%d", i,
+        std::filesystem::path{symbolizer_line_info.getFrame(i).FileName}.filename().string(),
+        symbolizer_line_info.getFrame(i).Line);
+  }
+
+  const auto& last_frame = symbolizer_line_info.getFrame(number_of_frames - 1);
+  if (last_frame.Line == 0) {
+    // DWARF Line numbers start counting from 1, and 0 means an error occured.
+    return ErrorMessage(absl::StrFormat("Unable to get line info for address=0x%x", address));
+  }
 
   LineInfo line_info;
-  line_info.set_source_file(symbolizer_line_info.getFrame(last_frame).FileName);
-  line_info.set_source_line(symbolizer_line_info.getFrame(last_frame).Line);
+  line_info.set_source_file(last_frame.FileName);
+  line_info.set_source_line(last_frame.Line);
   return line_info;
 }
 
