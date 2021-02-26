@@ -103,7 +103,7 @@ void Viewer::DrawLineNumbers(QPaintEvent* event) {
     if (heatmap_bar_width_.Value() > 0.0 && heatmap_source_) {
       const QRect heatmap_rect{0, top_of(block), heatmap_bar_width_.ToPixels(fontMetrics()),
                                fontMetrics().height()};
-      const float intensity = std::clamp(heatmap_source_(block.blockNumber()), 0.0f, 1.0f);
+      const float intensity = std::clamp(heatmap_source_(block.blockNumber() + 1), 0.0f, 1.0f);
       const auto scaled_intensity = static_cast<int>(std::sqrt(intensity) * 255);
       QColor color = kHeatmapColor;
       color.setAlpha(scaled_intensity);
