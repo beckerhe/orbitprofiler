@@ -1,0 +1,9 @@
+[settings]
+cmake:os=Windows
+cmake:arch=x86_64
+cmake:compiler=Visual Studio
+cmake:compiler.version=16
+cmake:compiler.runtime=MD
+cmake:build_type=Release
+[build_requires]
+&: cmake/3.19.6

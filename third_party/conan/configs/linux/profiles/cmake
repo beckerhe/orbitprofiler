@@ -1,0 +1,8 @@
+[settings]
+cmake:os=Linux
+cmake:arch=x86_64
+cmake:compiler=GCC
+cmake:compiler.version=9
+cmake:build_type=Release
+[build_requires]
+&: cmake/3.19.6
