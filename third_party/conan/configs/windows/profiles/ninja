@@ -1,0 +1,11 @@
+[settings]
+ninja:os=Windows
+ninja:arch=x86_64
+ninja:compiler=Visual Studio
+ninja:compiler.version=16
+ninja:compiler.runtime=MD
+ninja:build_type=Release
+[build_requires]
+&: ninja/1.9.0
+[env]
+CONAN_CMAKE_GENERATOR=Ninja

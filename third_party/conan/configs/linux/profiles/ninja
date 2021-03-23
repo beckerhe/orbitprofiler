@@ -1,0 +1,10 @@
+[settings]
+ninja:os=Linux
+ninja:arch=x86_64
+ninja:compiler=GCC
+ninja:compiler.version=9
+ninja:build_type=Release
+[build_requires]
+&: ninja/1.9.0
+[env]
+CONAN_CMAKE_GENERATOR=Ninja
