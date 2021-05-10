@@ -68,6 +68,12 @@ class Dialog : public QDialog {
   void SetHighlightCurrentLine(bool enabled);
   [[nodiscard]] bool IsCurrentLineHighlighted() const;
 
+  void SetStatusMessage(const QString& message, const std::optional<QString>& button_text);
+  void ClearStatusMessage();
+
+ signals:
+  void StatusMessageButtonClicked();
+
  private:
   std::unique_ptr<Ui::CodeViewerDialog> ui_;
   std::unique_ptr<QSyntaxHighlighter> syntax_highlighter_;
