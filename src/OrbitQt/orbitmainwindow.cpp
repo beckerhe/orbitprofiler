@@ -1550,7 +1550,7 @@ static void AnnotateDisassemblyWithSourceCode(
   dialog->ClearStatusMessage();
 }
 
-void OrbitMainWindow::ShowDisassembly(const orbit_client_protos::FunctionInfo& /*function_info*/,
+void OrbitMainWindow::ShowDisassembly(const orbit_client_protos::FunctionInfo& function_info,
                                       const std::string& assembly,
                                       orbit_code_report::DisassemblyReport report) {
   auto dialog = std::make_unique<orbit_code_viewer::OwningDialog>();
@@ -1563,11 +1563,123 @@ void OrbitMainWindow::ShowDisassembly(const orbit_client_protos::FunctionInfo& /
 
   if (report.GetNumSamples() > 0) {
     constexpr orbit_code_viewer::FontSizeInEm kHeatmapAreaWidth{1.3f};
-    dialog->SetOwningHeatmap(
-        kHeatmapAreaWidth,
-        std::make_unique<orbit_code_report::DisassemblyReport>(std::move(report)));
+    dialog->SetOwningHeatmap(kHeatmapAreaWidth,
+                             std::make_unique<orbit_code_report::DisassemblyReport>(report));
     dialog->SetEnableSampleCounters(true);
   }
 
-  orbit_code_viewer::OpenAndDeleteOnClose(std::move(dialog));
+  QPointer<orbit_code_viewer::OwningDialog> dialog_ptr =
+      orbit_code_viewer::OpenAndDeleteOnClose(std::move(dialog));
+
+  dialog_ptr->SetStatusMessage("Loading source location information", std::nullopt);
+
+  app_->RetrieveModuleWithDebugInfo(function_info.module_path(), function_info.module_build_id())
+      .ThenIfSuccess(
+          main_thread_executor_.get(),
+          [this, function_info, report,
+           dialog_ptr](const std::filesystem::path& local_file_path) -> ErrorMessageOr<void> {
+            if (dialog_ptr.isNull()) return outcome::success();
+
+            auto elf_or_error = orbit_elf_utils::ElfFile::Create(local_file_path);
+            if (elf_or_error.has_error()) return elf_or_error.error();
+            std::unique_ptr<orbit_elf_utils::ElfFile>& elf = elf_or_error.value();
+
+            const auto location_or_error =
+                elf->GetDeclarationLocationOfFunction(function_info.address());
+            if (location_or_error.has_error()) return location_or_error.error();
+            const auto source_file_path =
+                std::filesystem::path{location_or_error.value().source_file()};
+
+            std::optional<QString> source_file_contents_or_error = LoadSourceCode(source_file_path);
+
+            if (!source_file_contents_or_error.has_value()) {
+              dialog_ptr->SetStatusMessage(
+                  QString("Could not find the source code file \"%1\" on this machine.")
+                      .arg(QString::fromStdString(source_file_path.string())),
+                  "Choose file...");
+
+              QObject::connect(
+                  dialog_ptr, &orbit_code_viewer::Dialog::StatusMessageButtonClicked,
+                  [this, dialog_ptr, source_file_path, elf_file = std::move(elf), function_info,
+                   location_or_error, report]() {
+                    QSettings settings{};
+
+                    QDir previous_directory{
+                        settings.value(kPreviousSourcePathsMappingDirectoryKey, QDir::currentPath())
+                            .toString()};
+                    const QString file_name =
+                        QString::fromStdString(source_file_path.filename().string());
+
+                    QString user_chosen_file = QFileDialog::getOpenFileName(
+                        dialog_ptr,
+                        QString{"Choose %1"}.arg(QString::fromStdString(source_file_path.string())),
+                        previous_directory.filePath(file_name), file_name);
+
+                    if (user_chosen_file.isEmpty()) return;
+
+                    std::optional<QString> source_file_contents_or_error =
+                        LoadSourceCode(std::filesystem::path{user_chosen_file.toStdString()});
+
+                    if (!source_file_contents_or_error.has_value()) {
+                      dialog_ptr->SetStatusMessage(
+                          QString{"Failed to read source file \"%1\""}.arg(user_chosen_file),
+                          "Choose file...");
+                      return;
+                    }
+
+                    const bool should_create_mapping =
+                        QMessageBox::question(
+                            dialog_ptr, "Source paths mapping",
+                            "Should a source paths mapping be created from your file selection?",
+                            QMessageBox::Yes | QMessageBox::No,
+                            settings.value(kAutocreateMappingKey, true).toBool()
+                                ? QMessageBox::Yes
+                                : QMessageBox::No) == QMessageBox::Yes;
+
+                    if (should_create_mapping) {
+                      auto maybe_mapping = orbit_source_paths_mapping::InferMappingFromExample(
+                          source_file_path, std::filesystem::path{user_chosen_file.toStdString()});
+                      if (maybe_mapping.has_value()) {
+                        orbit_source_paths_mapping::MappingManager mapping_manager{};
+                        mapping_manager.AppendMapping(maybe_mapping.value());
+                      }
+                    }
+                    settings.setValue(kAutocreateMappingKey, should_create_mapping);
+                    settings.setValue(kPreviousSourcePathsMappingDirectoryKey,
+                                      QFileInfo{user_chosen_file}.path());
+
+                    AnnotateDisassemblyWithSourceCode(
+                        function_info, location_or_error.value(), dialog_ptr,
+                        source_file_contents_or_error.value(), elf_file.get(), report);
+
+                    QMetaObject::invokeMethod(
+                        dialog_ptr,
+                        [dialog_ptr]() {
+                          QObject::disconnect(
+                              dialog_ptr, &orbit_code_viewer::Dialog::StatusMessageButtonClicked,
+                              nullptr, nullptr);
+                        },
+                        Qt::QueuedConnection);
+                  });
+              return outcome::success();
+            }
+
+            AnnotateDisassemblyWithSourceCode(function_info, location_or_error.value(), dialog_ptr,
+                                              source_file_contents_or_error.value(), elf.get(),
+                                              report);
+
+            return outcome::success();
+          })
+      .Then(main_thread_executor_.get(), [dialog_ptr](const ErrorMessageOr<void>& error_message) {
+        if (!error_message.has_error()) return;
+
+        LOG("Error while loading debug information for the disassembly view: %s",
+            error_message.error().message());
+
+        // No dialog means the user aborted the operation
+        if (dialog_ptr.isNull()) return;
+
+        dialog_ptr->SetStatusMessage(QString::fromStdString(error_message.error().message()),
+                                     std::nullopt);
+      });
 }
