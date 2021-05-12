@@ -1369,6 +1369,10 @@ static std::optional<QString> TryApplyMappingAndReadSourceFile(
   return std::nullopt;
 }
 
+constexpr const char* kAutocreateMappingKey = "auto_create_mapping";
+constexpr const char* kPreviousSourcePathsMappingDirectoryKey =
+    "previous_source_paths_mapping_directory";
+
 static std::optional<QString> TryAskingTheUserAndReadSourceFile(
     QWidget* parent, const std::filesystem::path& file_path) {
   QMessageBox message_box{QMessageBox::Warning, "Source code file not found",
@@ -1377,9 +1381,6 @@ static std::optional<QString> TryAskingTheUserAndReadSourceFile(
                           QMessageBox::Cancel, parent};
   auto* pick_file_button = message_box.addButton("Choose file...", QMessageBox::ActionRole);
 
-  constexpr const char* kAutocreateMappingKey = "auto_create_mapping";
-  constexpr const char* kPreviousSourcePathsMappingDirectoryKey =
-      "previous_source_paths_mapping_directory";
   auto checkbox = std::make_unique<QCheckBox>(
       "Automatically create a source paths mapping from my selected file.");
   checkbox->setToolTip(
