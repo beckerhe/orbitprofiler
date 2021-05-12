@@ -71,6 +71,9 @@ class Dialog : public QDialog {
   void SetStatusMessage(const QString& message, const std::optional<QString>& button_text);
   void ClearStatusMessage();
 
+  void SetTopBarTitle(const QString& title);
+  [[nodiscard]] const QString& GetTopBarTitle() const;
+
  signals:
   void StatusMessageButtonClicked();
 

@@ -94,4 +94,7 @@ void Dialog::ClearStatusMessage() {
   ui_->buttonBox->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
 }
 
+void Dialog::SetTopBarTitle(const QString& title) { ui_->viewer->SetTopBarTile(title); }
+const QString& Dialog::GetTopBarTitle() const { return ui_->viewer->GetTopBarTitle(); }
+
 }  // namespace orbit_code_viewer

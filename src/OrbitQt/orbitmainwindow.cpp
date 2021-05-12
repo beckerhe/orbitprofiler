@@ -1547,6 +1547,8 @@ static void AnnotateDisassemblyWithSourceCode(
 
   dialog->SetAnnotatingContent(annotating_lines);
   dialog->SetLineNumberTypes(orbit_code_viewer::Dialog::LineNumberTypes::kOnlyAnnotatingLines);
+  dialog->SetTopBarTitle(QString::fromStdString(
+      std::filesystem::path{location_info.source_file()}.filename().string()));
   dialog->ClearStatusMessage();
 }
 
