@@ -77,6 +77,7 @@
 #include "CodeViewer/OwningDialog.h"
 #include "Connections.h"
 #include "DataViewFactory.h"
+#include "ElfUtils/ElfFile.h"
 #include "GlCanvas.h"
 #include "LiveFunctionsController.h"
 #include "LiveFunctionsDataView.h"
@@ -108,6 +109,7 @@
 #include "orbitsamplingreport.h"
 #include "servicedeploymanager.h"
 #include "services.pb.h"
+#include "symbol.pb.h"
 #include "types.h"
 #include "ui_orbitmainwindow.h"
 
@@ -1479,6 +1481,73 @@ void OrbitMainWindow::ShowSourceCode(
 
   code_viewer_dialog->GoToLineNumber(line_number);
   orbit_code_viewer::OpenAndDeleteOnClose(std::move(code_viewer_dialog));
+}
+
+static void AnnotateDisassemblyWithSourceCode(
+    const orbit_client_protos::FunctionInfo& function_info,
+    const orbit_grpc_protos::LineInfo& location_info,
+    const QPointer<orbit_code_viewer::OwningDialog>& dialog, const QString& source_file_contents,
+    orbit_elf_utils::ElfFile* elf, const orbit_code_report::DisassemblyReport& report) {
+  const auto source_file_lines = source_file_contents.split('\n');
+  LOG("source_file_lines.size(): %d", source_file_lines.size());
+
+  absl::flat_hash_map<size_t, uint64_t> source_line_to_first_instruction_offset;
+
+  for (uint64_t current_offset = 0; current_offset < function_info.size(); ++current_offset) {
+    const auto line_info_or_error = elf->GetLineInfo(current_offset + function_info.address());
+    if (line_info_or_error.has_error()) continue;
+    if (line_info_or_error.value().source_file() != location_info.source_file()) {
+      continue;
+    }
+    if (line_info_or_error.value().source_line() == 0) continue;
+
+    const auto source_line = line_info_or_error.value().source_line() - 1;
+    if (source_line >= static_cast<size_t>(source_file_lines.size())) continue;
+
+    const auto it = source_line_to_first_instruction_offset.find(source_line);
+
+    if (it == source_line_to_first_instruction_offset.end()) {
+      source_line_to_first_instruction_offset.emplace(source_line, current_offset);
+      continue;
+    }
+
+    if (current_offset < source_line_to_first_instruction_offset[source_line]) {
+      source_line_to_first_instruction_offset[source_line] = current_offset;
+    }
+  }
+
+  LOG("source_line_to_first_instruction_addr.size() = %d",
+      source_line_to_first_instruction_offset.size());
+
+  using AnnotatingLine = orbit_code_viewer::AnnotatingLine;
+  std::vector<AnnotatingLine> annotating_lines;
+  annotating_lines.reserve(source_line_to_first_instruction_offset.size());
+
+  for (const auto& [source_line, offset] : source_line_to_first_instruction_offset) {
+    const auto disassembly_line_number =
+        report.GetLineAtAddress(report.GetAbsoluteFunctionAddress() + offset);
+    if (!disassembly_line_number.has_value()) continue;
+
+    AnnotatingLine annotating_line{};
+    annotating_line.reference_line = disassembly_line_number.value() + 1;
+    annotating_line.line_number = source_line + 1;
+    annotating_line.line_contents = source_file_lines[static_cast<int>(source_line)].toStdString();
+    annotating_lines.emplace_back(std::move(annotating_line));
+  }
+
+  std::sort(annotating_lines.begin(), annotating_lines.end(),
+            [](const AnnotatingLine& lhs, const AnnotatingLine& rhs) {
+              return lhs.reference_line < rhs.reference_line;
+            });
+
+  for (const auto& annotating_line : annotating_lines) {
+    LOG("AnnotatingLine(reference_line=%d, line_number=%d, contents=%s",
+        annotating_line.reference_line, annotating_line.line_number, annotating_line.line_contents);
+  }
+
+  dialog->SetAnnotatingContent(annotating_lines);
+  dialog->SetLineNumberTypes(orbit_code_viewer::Dialog::LineNumberTypes::kOnlyAnnotatingLines);
+  dialog->ClearStatusMessage();
 }
 
 void OrbitMainWindow::ShowDisassembly(const orbit_client_protos::FunctionInfo& /*function_info*/,
