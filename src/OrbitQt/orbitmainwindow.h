@@ -189,6 +189,7 @@ class OrbitMainWindow final : public QMainWindow, public orbit_gl::MainWindowInt
   void UpdateCaptureToolbarIconOpacity();
 
   std::optional<QString> LoadSourceCode(const std::filesystem::path& file_path);
+  std::optional<QString> LoadSourceCodeInteractive(const std::filesystem::path& file_path);
 
  private:
   std::shared_ptr<MainThreadExecutor> main_thread_executor_;

@@ -1439,6 +1439,14 @@ std::optional<QString> OrbitMainWindow::LoadSourceCode(const std::filesystem::pa
   maybe_source_code = TryApplyMappingAndReadSourceFile(file_path);
   if (maybe_source_code.has_value()) return maybe_source_code.value();
 
+  return std::nullopt;
+}
+
+std::optional<QString> OrbitMainWindow::LoadSourceCodeInteractive(
+    const std::filesystem::path& file_path) {
+  auto maybe_source_code = LoadSourceCode(file_path);
+  if (maybe_source_code.has_value()) return maybe_source_code.value();
+
   maybe_source_code = TryAskingTheUserAndReadSourceFile(this, file_path);
   if (maybe_source_code.has_value()) return maybe_source_code.value();
 
@@ -1455,7 +1463,7 @@ void OrbitMainWindow::ShowSourceCode(
   code_viewer_dialog->SetHighlightCurrentLine(true);
   code_viewer_dialog->setWindowTitle(QString::fromStdString(file_path.filename().string()));
 
-  const auto source_code = LoadSourceCode(file_path.lexically_normal());
+  const auto source_code = LoadSourceCodeInteractive(file_path.lexically_normal());
 
   if (!source_code.has_value()) return;
 
