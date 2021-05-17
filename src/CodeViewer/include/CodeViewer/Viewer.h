@@ -110,6 +110,8 @@ class Viewer : public QPlainTextEdit {
   [[nodiscard]] uint64_t LargestOccuringLineNumber() const;
 
   QString top_bar_title_;
+
+  QFont non_code_font_;
 };
 
 // Determine how many pixels are needed to draw all possible line numbers for the given font

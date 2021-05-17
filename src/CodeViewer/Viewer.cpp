@@ -58,7 +58,8 @@ Viewer::Viewer(QWidget* parent)
     : QPlainTextEdit(parent),
       top_bar_widget_{this},
       left_sidebar_widget_{this},
-      right_sidebar_widget_{this} {
+      right_sidebar_widget_{this},
+      non_code_font_{QFontDatabase::systemFont(QFontDatabase::SystemFont::GeneralFont)} {
   UpdateBarsSize();
   QObject::connect(this, &QPlainTextEdit::blockCountChanged, this, &Viewer::UpdateBarsSize);
 
@@ -134,7 +135,7 @@ void Viewer::wheelEvent(QWheelEvent* ev) {
 
 void Viewer::DrawTopWidget(QPaintEvent* event) {
   QPainter painter{&top_bar_widget_};
-  painter.setFont(font());
+  painter.setFont(non_code_font_);
   painter.fillRect(event->rect(), kTitleBackgroundColor);
 
   if (line_number_types_ != LineNumberTypes::kNone) {
@@ -183,7 +184,7 @@ void Viewer::DrawTopWidget(QPaintEvent* event) {
 
 void Viewer::DrawLineNumbers(QPaintEvent* event) {
   QPainter painter{&left_sidebar_widget_};
-  painter.setFont(font());
+  painter.setFont(non_code_font_);
   painter.fillRect(event->rect(), kLineNumberBackgroundColor);
 
   const auto top_of = [&](const QTextBlock& block) {
@@ -276,7 +277,7 @@ static QString FractionToPercentageString(int a, int b) {
 void Viewer::DrawSampleCounters(QPaintEvent* event) {
   if (!sample_counters_enabled_) return;
   QPainter painter{&right_sidebar_widget_};
-  painter.setFont(font());
+  painter.setFont(non_code_font_);
   painter.fillRect(event->rect(), kLineNumberBackgroundColor);
 
   if (code_report_ == nullptr) return;
