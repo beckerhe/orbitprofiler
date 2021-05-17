@@ -11,10 +11,13 @@
 #include <array>
 #include <limits>
 
+#include "CodeReport/AnnotatingLine.h"
 #include "CodeViewer/Viewer.h"
 #include "gtest/gtest.h"
 
 namespace orbit_code_viewer {
+
+using orbit_code_report::AnnotatingLine;
 
 static int argc = 0;
 

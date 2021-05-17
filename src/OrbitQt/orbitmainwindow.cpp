@@ -1519,7 +1519,7 @@ static void AnnotateDisassemblyWithSourceCode(
   LOG("source_line_to_first_instruction_addr.size() = %d",
       source_line_to_first_instruction_offset.size());
 
-  using AnnotatingLine = orbit_code_viewer::AnnotatingLine;
+  using AnnotatingLine = orbit_code_report::AnnotatingLine;
   std::vector<AnnotatingLine> annotating_lines;
   annotating_lines.reserve(source_line_to_first_instruction_offset.size());
 
