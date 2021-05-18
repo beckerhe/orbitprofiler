@@ -77,10 +77,10 @@
 #include "CodeViewer/OwningDialog.h"
 #include "Connections.h"
 #include "DataViewFactory.h"
-#include "ElfUtils/ElfFile.h"
 #include "GlCanvas.h"
 #include "LiveFunctionsController.h"
 #include "LiveFunctionsDataView.h"
+#include "ObjectUtils/ElfFile.h"
 #include "OrbitBase/ExecutablePath.h"
 #include "OrbitBase/Logging.h"
 #include "OrbitBase/Result.h"
@@ -1487,7 +1487,7 @@ static void AnnotateDisassemblyWithSourceCode(
     const orbit_client_protos::FunctionInfo& function_info,
     const orbit_grpc_protos::LineInfo& location_info,
     const QPointer<orbit_code_viewer::OwningDialog>& dialog, const QString& source_file_contents,
-    orbit_elf_utils::ElfFile* elf, const orbit_code_report::DisassemblyReport& report) {
+    orbit_object_utils::ElfFile* elf, const orbit_code_report::DisassemblyReport& report) {
   const auto source_file_lines = source_file_contents.split('\n');
   LOG("source_file_lines.size(): %d", source_file_lines.size());
 
@@ -1582,9 +1582,9 @@ void OrbitMainWindow::ShowDisassembly(const orbit_client_protos::FunctionInfo& f
            dialog_ptr](const std::filesystem::path& local_file_path) -> ErrorMessageOr<void> {
             if (dialog_ptr.isNull()) return outcome::success();
 
-            auto elf_or_error = orbit_elf_utils::ElfFile::Create(local_file_path);
+            auto elf_or_error = orbit_object_utils::CreateElfFile(local_file_path);
             if (elf_or_error.has_error()) return elf_or_error.error();
-            std::unique_ptr<orbit_elf_utils::ElfFile>& elf = elf_or_error.value();
+            std::unique_ptr<orbit_object_utils::ElfFile>& elf = elf_or_error.value();
 
             const auto location_or_error =
                 elf->GetDeclarationLocationOfFunction(function_info.address());
